@@ -45,6 +45,8 @@ trig triangle4(
 	vec3{1,-1,8},
 	vec3{0,1,10}
 );
+
+
 vector<double> dots;
 
 bool move_light = false;
@@ -56,7 +58,8 @@ int main() {
 	SDL_Event e;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 	while(1) {
-		auto rot_matrix = rotation(yaw,pitch,roll);
+		//auto rot_matrix = rotation(yaw,pitch,roll);
+		auto rot_matrix = rotationYaw(yaw);
 		while(SDL_PollEvent(&e)) {
 			if(e.type == SDL_QUIT) {
 				return 0;
@@ -81,11 +84,17 @@ int main() {
 				if(e.key.keysym.scancode == SDL_SCANCODE_A) {
 					move.x -= move_speed;
 				}
-				if(!move_light) {
-					origin = origin + move * rot_matrix;
+				if(e.key.keysym.scancode == SDL_SCANCODE_Q) {
+					move.y -= move_speed;
+				}
+				if(e.key.keysym.scancode == SDL_SCANCODE_E) {
+					move.y += move_speed;
+				}
+				if(!move_light) { 
+					origin = origin + move * rot_matrix; // apply rotation transformation to the move vector
 				}
 				else {
-					light_pos = light_pos + move;
+					light_pos = light_pos + move; // lets you move the light point
 				}
 			}
 		}
@@ -99,16 +108,16 @@ int main() {
 				vec3 p,surf_norm;
 				double lightdot = dot(dir.norm(),(light_pos - origin).norm());
 				double epsilon = 0.00001;
-				if(lightdot>(1-epsilon) && lightdot < (1+epsilon)) {
+				if(lightdot>(1-epsilon) && lightdot < (1+epsilon)) { // draws a sphere in the location of the light
 					SDL_SetRenderDrawColor(renderer,255,255,255,255);
 					SDL_RenderDrawPoint(renderer,i + w / 2,h - (j + h / 2)); 
-				};
-				if(castRay(origin,dir,p,surf_norm)!=nullptr) {
+				}
+				else if(castRay(origin,dir,p,surf_norm)!=nullptr) {
 					if(dot(surf_norm,dir) > 0) {
-						surf_norm = -surf_norm;
+						surf_norm = -surf_norm; // adjust the surface normal so its in the opposite direction from the ray direction
 					}
-					double scalar = dot((light_pos - p).norm(),surf_norm.norm());
-					if(scalar < 0) { continue; };
+					double scalar = dot((light_pos - p).norm(),surf_norm.norm()); // how much light is in a point is calculated by making the dot product of the surface normal and the direction of the surface point to the light point
+					if(scalar < 0) { continue; }; // if the point is not facing the light it will not be drawn
 					SDL_SetRenderDrawColor(renderer,255 * scalar,255 * scalar,255 * scalar,255);
 					SDL_RenderDrawPoint(renderer,i + w / 2,h - (j + h / 2));
 				}

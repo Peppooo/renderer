@@ -55,6 +55,12 @@ vector<vec3> rotation(double yaw,double pitch,double roll) {
 	};
 }
 
+vector<vec3> rotationYaw(double theta) {
+	return {
+		{cos(theta),0,sin(theta)},{0,1,0},{-sin(theta),0,cos(theta)} // the rotation matrix is different since i use Y as height X at the right and Z as far
+	};
+}
+
 class trig {
 public:
 	vec3 a,b,c;
