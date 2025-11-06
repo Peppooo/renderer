@@ -64,8 +64,9 @@ vector<vec3> rotationYaw(double theta) {
 class trig {
 public:
 	vec3 a,b,c;
+	vec3 color;
 	static vector<trig*> triangles;
-	trig(vec3 A,vec3 B,vec3 C):a(A),b(B),c(C) {
+	trig(vec3 A,vec3 B,vec3 C,vec3 Color):a(A),b(B),c(C),color(Color) {
 		triangles.push_back(this);
 	}
 	bool intersect(vec3 O,vec3 D,vec3& p,vec3& N) {
@@ -105,4 +106,37 @@ trig* castRay(vec3 O,vec3 D,vec3& p,vec3& n) {
 		}
 	}
 	return closest;
+}
+
+SDL_Color compute_ray(vec3 O,vec3 D,vec3 light,int reflections = 2) {
+	vec3 color; int done_reflections = 0;
+	for(int i = 0; i < reflections; i++) {
+		vec3 p,surf_norm; // p is the intersection location
+		trig* triangle = castRay(O,D,p,surf_norm);
+		if(triangle != nullptr) {
+			if(dot(surf_norm,D) > 0) {
+				surf_norm = -surf_norm; // adjust the surface normal so its in the opposite direction from the ray direction
+			}
+
+			double scalar = dot((light - p).norm(),surf_norm.norm()); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
+			
+			if(scalar > 0) { // if the point is not facing the light it will not be drawn
+				if(done_reflections == 0) {
+					color = triangle->color * scalar;
+				}
+				else {
+					color = color + (triangle->color * scalar);
+				}
+				done_reflections++;
+				O = p;
+				D = D - surf_norm * 2 * dot(surf_norm,D); // reflection based on surface normal
+			}
+			else {
+				break;
+			}
+		}
+	}
+	color = color / done_reflections;
+
+	return {(Uint8)color.x,(Uint8)color.y,(Uint8)color.z,255}; // i use vec3 for colors since it has operator configured and i don't care about alpha channel
 }

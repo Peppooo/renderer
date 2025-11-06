@@ -16,10 +16,9 @@ vec3 origin = {0,0,0};
 double yaw = 0,pitch = 0,roll=0;
 double move_speed = 0.1;
 double mouse_sens = 0.001;
-
+bool move_light = false;
 
 const double foc_len = w / (2 * tan(fov / 2));
-
 
 // scene infos
 
@@ -28,28 +27,34 @@ vec3 light_pos = {0,3,10};
 trig triangle1(
 	vec3{-1,-1,12},
 	vec3{1,-1,12},
-	vec3{0,1,10}
+	vec3{0,1,10},
+	vec3{255,0,0}
 );
 trig triangle2(
 	vec3{1,-1,12},
 	vec3{1,-1,8},
-	vec3{0,1,10}
+	vec3{0,1,10},
+	vec3{255,0,0}
 );
 trig triangle3(
 	vec3{-1,-1,12},
 	vec3{-1,-1,8},
-	vec3{0,1,10}
+	vec3{0,1,10},
+	vec3{255,0,0}
 );
 trig triangle4(
 	vec3{-1,-1,8},
 	vec3{1,-1,8},
-	vec3{0,1,10}
+	vec3{0,1,10},
+	vec3{255,0,0}
 );
 
-
-vector<double> dots;
-
-bool move_light = false;
+trig reflection_test(
+	vec3{-3,-2,12},
+	vec3{-3,-2,8},
+	vec3{-4,2,10},
+	vec3{255,255,255}
+);
 
 
 int main() {
@@ -112,13 +117,9 @@ int main() {
 					SDL_SetRenderDrawColor(renderer,255,255,255,255);
 					SDL_RenderDrawPoint(renderer,i + w / 2,h - (j + h / 2)); 
 				}
-				else if(castRay(origin,dir,p,surf_norm)!=nullptr) {
-					if(dot(surf_norm,dir) > 0) {
-						surf_norm = -surf_norm; // adjust the surface normal so its in the opposite direction from the ray direction
-					}
-					double scalar = dot((light_pos - p).norm(),surf_norm.norm()); // how much light is in a point is calculated by making the dot product of the surface normal and the direction of the surface point to the light point
-					if(scalar < 0) { continue; }; // if the point is not facing the light it will not be drawn
-					SDL_SetRenderDrawColor(renderer,255 * scalar,255 * scalar,255 * scalar,255);
+				else {
+					SDL_Color c = compute_ray(origin,dir,light_pos,2);
+					SDL_SetRenderDrawColor(renderer,c.r,c.g,c.b,255);
 					SDL_RenderDrawPoint(renderer,i + w / 2,h - (j + h / 2));
 				}
 				
