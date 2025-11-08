@@ -1,7 +1,19 @@
 #pragma once
+#include <SDL2/SDL.h>
 #include <vector>
 
 using namespace std;
+
+const double epsilon = 1e-7;
+
+bool IS_CENTER_PIXEL = false;
+
+int cycle(int i,int max) {
+	if(i == max) {
+		return 0;
+	}
+	return i;
+}
 
 struct vec3 {
 	double x,y,z;
@@ -9,6 +21,9 @@ struct vec3 {
 		return {x * scalar,y * scalar,z * scalar};
 	}
 	vec3 operator/(double scalar) {
+		if(scalar == 0) {
+			scalar = epsilon;
+		}
 		return {x / scalar,y / scalar,z / scalar};
 	}
 	vec3 operator+(vec3 a) {
@@ -57,7 +72,7 @@ vector<vec3> rotation(double yaw,double pitch,double roll) {
 
 vector<vec3> rotationYaw(double theta) {
 	return {
-		{cos(theta),0,sin(theta)},{0,1,0},{-sin(theta),0,cos(theta)} // the rotation matrix is different since i use Y as height X at the right and Z as far
+		{cos(theta),0,sin(theta)},{0,1,0},{-sin(theta),0,cos(theta)} // the rotation matrix is different since i use Y as up X as right and Z as forward
 	};
 }
 
@@ -70,7 +85,10 @@ public:
 		triangles.push_back(this);
 	}
 	bool intersect(vec3 O,vec3 D,vec3& p,vec3& N) {
-		N = (cross(b - a,c - a));
+		N = (cross(b - a,c - a)).norm();
+		if(dot(N,D) > 0) {
+			N = -N; // adjust the surface normal so its in the opposite direction from the ray direction
+		}
 		double t = dot(N,a - O) / dot(N,D);
 		if(t < 0) return false;
 		p = O + D * t;
@@ -90,6 +108,24 @@ public:
 
 vector<trig*> trig::triangles;
 
+class cube {
+public:
+	cube(vec3 edge,double lx,double ly,double lz,vec3 color) {
+		new trig(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},color);
+		new trig(edge + vec3{0,ly,0},edge+vec3{lx,ly,0},edge + vec3{lx,0,0},color);
+		new trig(edge,edge + vec3{0,0,lz},edge + vec3{0,ly,0},color);
+		new trig(edge + vec3{0,0,lz},edge + vec3{0,ly,lz},edge + vec3{0,ly,0},color);
+		new trig(edge + vec3{lx,0,lz},edge + vec3{lx,ly,lz},edge + vec3{lx,0,0},color);
+		new trig(edge + vec3{lx,0,0},edge + vec3{lx,ly,0},edge + vec3{lx,ly,lz},color);
+		new trig(edge + vec3{lx,0,lz},edge+vec3{0,0,lz},edge+ vec3{lx,ly,lz},color);
+		new trig(edge + vec3{lx,ly,lz},edge+vec3{0,ly,lz},edge+ vec3{0,0,lz},color);
+		new trig(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},color);
+		new trig(edge + vec3{0,0,0},edge + vec3{lx,0,0},edge + vec3{0,0,lz},color);       
+		new trig(edge + vec3{lx,0,lz},edge + vec3{lx,0,0},edge + vec3{0,0,lz},color);
+		new trig(edge + vec3{lx,ly,lz},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},color);
+	}
+};
+
 trig* castRay(vec3 O,vec3 D,vec3& p,vec3& n) {
 	trig* closest = nullptr;
 	double closest_dist = INFINITY;
@@ -108,19 +144,40 @@ trig* castRay(vec3 O,vec3 D,vec3& p,vec3& n) {
 	return closest;
 }
 
-SDL_Color compute_ray(vec3 O,vec3 D,vec3 light,int reflections = 2) {
-	vec3 color; int done_reflections = 0;
-	for(int i = 0; i < reflections; i++) {
-		vec3 p,surf_norm; // p is the intersection location
-		trig* triangle = castRay(O,D,p,surf_norm);
-		if(triangle != nullptr) {
-			if(dot(surf_norm,D) > 0) {
-				surf_norm = -surf_norm; // adjust the surface normal so its in the opposite direction from the ray direction
-			}
+double compute_light_scalar(vec3 p,vec3 n,vector<vec3> lights,bool& visible) { // gets illumination from the brightest of all the lights
+	double max_light_scalar = 0;
+	visible = false;
+	for(int i = 0; i < lights.size(); i++) {
+		vec3 pl,nl;
+		double scalar = (dot((lights[i] - p).norm(),n.norm())); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
+		if(IS_CENTER_PIXEL) {
 
-			double scalar = dot((light - p).norm(),surf_norm.norm()); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
-			
-			if(scalar > 0) { // if the point is not facing the light it will not be drawn
+		}
+		if(scalar > max_light_scalar && (castRay(p,(lights[i] - p).norm(),pl,nl) == nullptr || (pl-p).len()>=(p-lights[i]).len())) {
+			max_light_scalar = scalar;
+		}
+	}
+	if(max_light_scalar < 0) {
+		visible = false;
+	}
+	else {
+		visible = true;
+	}
+	return max_light_scalar;
+}
+
+SDL_Color compute_ray(vec3 O,vec3 D,vector<vec3> lights,int reflections = 2) {
+	vec3 color; int done_reflections = 0;
+	D = D.norm();
+	for(int i = 0; i < reflections; i++) {
+		vec3 p,surf_norm = {0,0,0}; // p is the intersection location
+		trig* triangle = castRay(O,D,p,surf_norm);
+		p = p + surf_norm * epsilon;
+		if(triangle != nullptr) {
+			bool visible = false;
+			double scalar = compute_light_scalar(p,surf_norm,lights,visible);
+			vec3 pl,nl;
+			if(visible) { // if the point is not facing the light it will not be drawn
 				if(done_reflections == 0) {
 					color = triangle->color * scalar;
 				}
@@ -128,15 +185,20 @@ SDL_Color compute_ray(vec3 O,vec3 D,vec3 light,int reflections = 2) {
 					color = color + (triangle->color * scalar);
 				}
 				done_reflections++;
-				O = p;
-				D = D - surf_norm * 2 * dot(surf_norm,D); // reflection based on surface normal
+				if(done_reflections < reflections) { // if its not the last reflection
+					O = p;
+					D = (D - surf_norm * 2 * dot(surf_norm,D)).norm(); // reflection based on surface normal
+				}
 			}
 			else {
 				break;
 			}
 		}
 	}
-	color = color / done_reflections;
+	if(done_reflections == 0) {
+		return {0,0,0,255};
+	}
 
+	color = color / done_reflections;
 	return {(Uint8)color.x,(Uint8)color.y,(Uint8)color.z,255}; // i use vec3 for colors since it has operator configured and i don't care about alpha channel
 }
