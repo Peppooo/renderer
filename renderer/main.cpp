@@ -6,7 +6,7 @@
 using namespace std;
 
 const int w = 1024,h = 1024;
-const int wp = 8,hp = 8;
+int wp = 4,hp = 4;
 
 SDL_Window* window;
 SDL_Renderer* renderer;
@@ -28,21 +28,36 @@ vector<vec3> lights = {vec3{0,3,8},{1.5,-1.5,10.5}};
 
 cube cube1(vec3{0,-2,9},3,3,3,vec3{255,0,0});
 
+cube cube2(vec3{-10,-5,-5},20,20,20,vec3{255,255,0});
+
 trig reflection_test(
 	vec3{-3,-2,12},
 	vec3{-3,-2,8},
 	vec3{-3,2,10},
-	vec3{255,255,255}
+	vec3{255,255,255},true
 );
 
 
 int main() {
 	SDL_Init(SDL_INIT_VIDEO);
-	SDL_CreateWindowAndRenderer(w,h,0,&window,&renderer);
+	SDL_Window* window = SDL_CreateWindow("Framebuffer",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,w,h,0);
+	SDL_Renderer* renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED);
+	SDL_Texture* texture = SDL_CreateTexture(
+		renderer,
+		SDL_PIXELFORMAT_ARGB8888,
+		SDL_TEXTUREACCESS_STREAMING,
+		w,
+		h
+	);
 	SDL_Event e;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
+	int initial_trig_num = trig::triangles.size();
+
+	uint32_t* framebuffer = new uint32_t[w*h];
+
 	while(1) {
-		while(trig::triangles.size() > 13) {
+		while(trig::triangles.size() > initial_trig_num) {
+			delete trig::triangles.back();
 			trig::triangles.pop_back();
 		}
 		//auto rot_matrix = rotation(yaw,pitch,roll);
@@ -60,9 +75,7 @@ int main() {
 					move_light = !move_light;
 					if(move_light) {
 						current_light_index++;
-						cout << current_light_index << endl;
 						current_light_index = cycle(current_light_index,lights.size());
-						cout << current_light_index << endl;
 					}
 				}
 				if(e.key.keysym.scancode == SDL_SCANCODE_W) {
@@ -83,6 +96,9 @@ int main() {
 				if(e.key.keysym.scancode == SDL_SCANCODE_E) {
 					move.y += move_speed;
 				}
+				if(e.key.keysym.scancode == SDL_SCANCODE_H) {
+					wp = 1; hp = 1;
+				}
 				if(!move_light) {
 					origin = origin + move * rot_matrix; // apply rotation transformation to the move vector
 				}
@@ -91,45 +107,46 @@ int main() {
 				}
 			}
 		}
-		SDL_SetRenderDrawColor(renderer,0,0,0,255);
-		SDL_RenderClear(renderer);
-		SDL_SetRenderDrawColor(renderer,255,255,255,255);
-
+		int pitch;
+		SDL_LockTexture(texture,nullptr,(void**)&framebuffer,&pitch);
 		for(int i = -w / 2; i < w / 2; i += wp) {
 			for(int j = -h / 2; j < h / 2; j += hp) {
+				int x = (i + w / 2); int y = (j + h / 2);
+				vec3 pixel = {0,0,0};
 				if(j == 0 && i == 0) {
 					IS_CENTER_PIXEL = true;
 				}
 				else {
 					IS_CENTER_PIXEL = false;
 				}
-				vec3 dir = {double(i),double(j),foc_len};
-				dir = dir * rot_matrix;
-				vec3 p,surf_norm;
+				vec3 dir = vec3{double(i),double(j),foc_len}*rot_matrix;
 
-				SDL_Color c = compute_ray(origin,dir,lights,1);
-				SDL_SetRenderDrawColor(renderer,c.r,c.g,c.b,255);
-				SDL_Rect r{i + w / 2,h - (j + h / 2),wp,hp};
-				SDL_RenderFillRect(renderer,&r);
+				pixel = compute_ray(origin,dir,lights,4);
 
 				for(int k = 0; k < lights.size(); k++) {
 					double lightdot = dot(dir.norm(),(lights[k] - origin).norm());
 					if(lightdot > (1 - 0.0001) && lightdot < (1 + 0.0001)) { // draws a sphere in the location of the light
 						if(current_light_index == k && move_light)
 						{
-							SDL_SetRenderDrawColor(renderer,255,0,255,255);
+							pixel = vec3{255,0,255};
 						}
 						else {
-							SDL_SetRenderDrawColor(renderer,255,255,255,255);
+							pixel = vec3{255,255,255};
 						}
-						SDL_Rect r{i + w / 2,h - (j + h / 2),wp,hp};
-						SDL_RenderFillRect(renderer,&r);
+					}
+				}
+
+				for(int qx = x; qx < (x + hp); qx++) {
+					for(int qy = y; qy < (y + hp); qy++) {
+						framebuffer[w * ((h-1)-qy) + qx] = pixel.argb(); // 
 					}
 				}
 			}
 		}
 
-		SDL_Delay(16);
+		SDL_UnlockTexture(texture);
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer,texture,nullptr,nullptr);
 		SDL_RenderPresent(renderer);
 	}
 }
