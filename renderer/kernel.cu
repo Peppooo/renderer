@@ -5,6 +5,7 @@
 #include <iostream>
 #include "utils.h"
 
+
 using namespace std;
 
 // camera infos
@@ -15,8 +16,10 @@ constexpr double move_speed = 0.1;
 constexpr double mouse_sens = 0.001;
 double foc_len = w / (2 * tan(fov / 2));
 
+__constant__ __device__ int reflections = 4;
+
 __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,trig* scene,double focal_length,int sceneSize,vec3* lights,int lightsSize,bool move_light,int current_light_index) {
-	int idx = threadIdx.x + blockIdx.x * blockDim.x;
+	int idx = (threadIdx.x + blockIdx.x * blockDim.x);
 	if(idx >= w * h) { return; }
 	int x = idx % w;
 	int y = idx / w;
@@ -25,17 +28,15 @@ __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,trig* sc
 	vec3 pixel = {0,0,0};
 	vec3 dir = rotation * vec3{double(i),double(j),focal_length};
 
-	pixel = compute_ray(origin,dir,scene,sceneSize,lights,lightsSize,2);
+	pixel = compute_ray(origin,dir,scene,sceneSize,lights,lightsSize,reflections);
 
 	for(int k = 0; k < lightsSize; k++) {
 		double lightdot = dot(dir.norm(),(lights[k] - origin).norm());
 		if(lightdot > (1 - 0.0001) && lightdot < (1 + 0.0001)) { // draws a sphere in the location of the light
+			pixel = vec3{255,255,255};
 			if(current_light_index == k && move_light)
 			{
 				pixel = vec3{255,0,255};
-			}
-			else {
-				pixel = vec3{255,255,255};
 			}
 		}
 	}
@@ -50,24 +51,30 @@ int wp = 2,hp = 2;
 
 int main() {
 	// scene infos
-	trig scene[12 * 2 + 1]; const int sceneSize = sizeof(scene) / sizeof(trig); // 2 cube per 12 triangles 
+	trig scene[50]; int sceneSize = 0; // scene size calculated step by step 
 	vec3 lights[] = {{0,3,8},{-1,-1.5,10.5}}; const int lightsSize = sizeof(lights) / sizeof(vec3);
 
-	cube(vec3{0,-2,9},3,3,3,vec3{255,0,0},scene,0);
+	cube(vec3{1,-2,9},3,3,3,vec3{255,0,0},scene,sceneSize,false); // matte red
 
-	cube(vec3{-10,-5,-5},20,20,20,vec3{255,255,0},scene,12);
+	cube(vec3{-2,-2,11},2,2,2,vec3{20,20,20},scene,sceneSize,true); // reflective dark grey
+	
+
+	cube(vec3{-10,-2,-1},20,20,20,vec3{150,150,150},scene,sceneSize,false); // container
 
 	trig reflection_test(
-		vec3{-3,-2,12},
-		vec3{-3,-2,8},
-		vec3{-3,2,10},
-		vec3{255,255,255},true
+		vec3{-3,-2,14},
+		vec3{-3,-2,6},
+		vec3{-3,4,10},
+		vec3{255,255,255},scene,sceneSize,true
 	);
-	scene[24] = reflection_test;
+
+	//cube();
+
+	scene[sceneSize] = reflection_test;
 
 	uint32_t* framebuffer = nullptr;
 
-	// GPU scene allocation
+	// GPU allocations
 	trig* d_scene;
 	vec3* d_lights;
 	uint32_t* d_framebuffer;
@@ -96,7 +103,7 @@ int main() {
 
 
 	while(1) {
-		auto rot_matrix = rotationYaw(yaw);
+		auto rot_matrix = rotationY(yaw);
 		while(SDL_PollEvent(&e)) {
 			if(e.type == SDL_QUIT) {
 				return 0;
@@ -149,6 +156,7 @@ int main() {
 		int numBlocks = (w * h + 255) / 256;
 		render_pixel << <numBlocks,256 >> > (d_framebuffer,origin,rot_matrix,d_scene,foc_len,sceneSize,d_lights,lightsSize,move_light,current_light_index);
 		cudaDeviceSynchronize();
+
 		//render_pixel(d_framebuffer,origin,rot_matrix,d_scene,foc_len,sceneSize,lights,lightsSize,move_light,current_light_index);
 		cudaMemcpy(framebuffer,d_framebuffer,w * h * sizeof(uint32_t),cudaMemcpyDeviceToHost);
 

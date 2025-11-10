@@ -2,10 +2,14 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <math.h>
+#include <curand_kernel.h>
 
 using namespace std;
 
+
 __device__ __constant__ double epsilon = 1e-7;
+
+
 
 int cycle(int i,int max) {
 	if(i == max) {
@@ -47,7 +51,7 @@ struct vec3 {
 		return sqrt(x * x + y * y + z * z);
 	}
 	__host__ __device__ vec3 norm() const {
-		return *this / len();
+		return *this * rsqrt(x*x+y*y+z*z+epsilon);
 	}
 	__host__ __device__ uint32_t argb() {
 		return (255 << 24) | ((unsigned char)x << 16) | ((unsigned char)y << 8) | (unsigned char)z;
@@ -85,12 +89,12 @@ __host__ matrix rotation(double yaw,double pitch,double roll) {
 	};
 }
 
-__host__ matrix rotationYaw(double theta) {
+__host__ matrix rotationY(double theta) {
 	double c = cos(theta); double s = sin(theta);
 	return {
 		{c,0,s},{0,1,0},{-s,0,c} // the rotation matrix is different since i use Y as up X as right and Z as forward
 	};
-}
+};
 
 class trig {
 public:
@@ -98,7 +102,9 @@ public:
 	vec3 color;
 	bool reflective = false;
 	__host__ __device__ trig() {};
-	__host__ __device__ trig(vec3 A,vec3 B,vec3 C,vec3 Color,bool Reflective = false):a(A),b(B),c(C),color(Color),reflective(Reflective) {
+	__host__ __device__ trig(vec3 A,vec3 B,vec3 C,vec3 Color,trig* scene,int& sceneSize,bool Reflective = false):a(A),b(B),c(C),color(Color),reflective(Reflective) {
+		scene[sceneSize] = *this;
+		sceneSize++;
 	}
 	__device__ bool intersect(const vec3& O,const vec3& D,vec3& p,vec3& N) {
 		N = (cross(b - a,c - a)).norm();
@@ -123,19 +129,40 @@ public:
 	}
 };
 
-__host__ void cube(vec3 edge,double lx,double ly,double lz,vec3 color,trig* scene,int startIndex,bool reflective = false) {
-	scene[startIndex] = trig(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},color,reflective);
-	scene[startIndex + 1] = trig(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{lx,0,0},color,reflective);
-	scene[startIndex + 2] = trig(edge,edge + vec3{0,0,lz},edge + vec3{0,ly,0},color,reflective);
-	scene[startIndex + 3] = trig(edge + vec3{0,0,lz},edge + vec3{0,ly,lz},edge + vec3{0,ly,0},color,reflective);
-	scene[startIndex + 4] = trig(edge + vec3{lx,0,lz},edge + vec3{lx,ly,lz},edge + vec3{lx,0,0},color,reflective);
-	scene[startIndex + 5] = trig(edge + vec3{lx,0,0},edge + vec3{lx,ly,0},edge + vec3{lx,ly,lz},color,reflective);
-	scene[startIndex + 6] = trig(edge + vec3{lx,0,lz},edge + vec3{0,0,lz},edge + vec3{lx,ly,lz},color,reflective);
-	scene[startIndex + 7] = trig(edge + vec3{lx,ly,lz},edge + vec3{0,ly,lz},edge + vec3{0,0,lz},color,reflective);
-	scene[startIndex + 8] = trig(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},color,reflective);
-	scene[startIndex + 9] = trig(edge + vec3{0,0,0},edge + vec3{lx,0,0},edge + vec3{0,0,lz},color,reflective);
-	scene[startIndex + 10] = trig(edge + vec3{lx,0,lz},edge + vec3{lx,0,0},edge + vec3{0,0,lz},color,reflective);
-	scene[startIndex + 11] = trig(edge + vec3{lx,ly,lz},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},color,reflective); // a little bit hard coded but i dont care its good (maybe i could have made a box intersection function or do this automatically
+__host__ void cube(vec3 edge,double lx,double ly,double lz,vec3 color,trig* scene,int& sceneSize,bool reflective = false) {
+	trig(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},color,scene,sceneSize,reflective);
+	trig(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{lx,0,0},color,scene,sceneSize,reflective);
+	trig(edge,edge + vec3{0,0,lz},edge + vec3{0,ly,0},color,scene,sceneSize,reflective);
+	trig(edge + vec3{0,0,lz},edge + vec3{0,ly,lz},edge + vec3{0,ly,0},color,scene,sceneSize,reflective);
+	trig(edge + vec3{lx,0,lz},edge + vec3{lx,ly,lz},edge + vec3{lx,0,0},color,scene,sceneSize,reflective);
+	trig(edge + vec3{lx,0,0},edge + vec3{lx,ly,0},edge + vec3{lx,ly,lz},color,scene,sceneSize,reflective);
+	trig(edge + vec3{lx,0,lz},edge + vec3{0,0,lz},edge + vec3{lx,ly,lz},color,scene,sceneSize,reflective);
+	trig(edge + vec3{lx,ly,lz},edge + vec3{0,ly,lz},edge + vec3{0,0,lz},color,scene,sceneSize,reflective);
+	trig(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},color,scene,sceneSize,reflective);
+	trig(edge + vec3{0,0,0},edge + vec3{lx,0,0},edge + vec3{0,0,lz},color,scene,sceneSize,reflective);
+	trig(edge + vec3{lx,0,lz},edge + vec3{lx,0,0},edge + vec3{0,0,lz},color,scene,sceneSize,reflective);
+	trig(edge + vec3{lx,ly,lz},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},color,scene,sceneSize,reflective); // a little bit hard coded but i dont care its good (maybe i could have made a box intersection function or do this automatically
+}
+
+__device__ int iter = 0;
+
+__device__ double randNorm() {
+	curandStatePhilox4_32_10_t state;
+	curand_init(34578345785123,threadIdx.x,iter,&state); // deterministic state per thread
+	iter++;
+	return 2.0 * curand_uniform_double(&state) - 1.0;
+}
+
+
+__device__ vec3 randomVec(vec3 N){
+	vec3 v = {0,0,0};
+
+	while(true) {
+		v = {randNorm(),randNorm(),randNorm()};
+		if(dot(v,N) > 0) { // 
+			return v.norm();
+		}
+	}
 }
 
 __device__ int castRay(const vec3& O,const vec3& D,trig* scene,int sceneSize,vec3& p,vec3& n) {
@@ -156,6 +183,7 @@ __device__ int castRay(const vec3& O,const vec3& D,trig* scene,int sceneSize,vec
 	return closestIdx;
 }
 
+
 __device__ double compute_light_scalar(const vec3& p,const vec3& n,trig* scene,int sceneSize,const vec3* lights,int lightsSize,bool& visible) { // gets illumination from the brightest of all the lights
 	double max_light_scalar = 0;
 	visible = false;
@@ -175,6 +203,25 @@ __device__ double compute_light_scalar(const vec3& p,const vec3& n,trig* scene,i
 	return max_light_scalar;
 }
 
+__device__ double compute_reflected_light_scalar(const vec3& p,const vec3& n,int numRays,int numReflections,trig* scene,int sceneSize,const vec3* lights,int lightsSize) {
+	double max_scalar = -INFINITY;
+	vec3 d = n;
+	for(int i = 0; i < numRays; i++) {
+		vec3 surf; vec3 surf_norm;
+		int objIdx = castRay(p,d,scene,sceneSize,surf,surf_norm);
+		if(objIdx != -1 && scene[objIdx].reflective) {
+			bool is_visible;
+			double scalar = compute_light_scalar(surf,surf_norm,scene,sceneSize,lights,lightsSize,is_visible);
+			if(is_visible && scalar > max_scalar) {
+				max_scalar = scalar;
+			}
+		}
+		d = (randomVec(n)*0.4+n*0.6);
+	}
+	return max_scalar;
+}
+
+
 __device__ vec3 compute_ray(vec3 O,vec3 D,trig* scene,int sceneSize,const vec3* lights,int lightsSize,int reflections = 2) {
 	vec3 color = {0,0,0}; int done_reflections = 0;
 	for(int i = 0; i < reflections; i++) {
@@ -182,9 +229,10 @@ __device__ vec3 compute_ray(vec3 O,vec3 D,trig* scene,int sceneSize,const vec3* 
 		int trigIdx = castRay(O,D,scene,sceneSize,p,surf_norm);
 		if(trigIdx != -1) {
 			bool visible;
-			double scalar = compute_light_scalar(p,surf_norm,scene,sceneSize,lights,lightsSize,visible);
+			double scalar = (compute_light_scalar(p,surf_norm,scene,sceneSize,lights,lightsSize,visible));
 			vec3 pl,nl;
 			if(visible) { // if the point is not facing the light it will not be drawn
+
 				color += (scene[trigIdx].color * scalar);
 				done_reflections++;
 				if(done_reflections < reflections&& scene[trigIdx].reflective) { // if its not the last reflection or triangle hit not reflective
