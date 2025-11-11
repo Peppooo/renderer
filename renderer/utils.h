@@ -6,10 +6,7 @@
 
 using namespace std;
 
-
-__device__ __constant__ double epsilon = 1e-7;
-
-
+__device__ __constant__ float epsilon = 1e-5;
 
 int cycle(int i,int max) {
 	if(i == max) {
@@ -21,11 +18,11 @@ int cycle(int i,int max) {
 class matrix;
 
 struct vec3 {
-	double x,y,z;
-	__host__ __device__ vec3 operator*(const double& scalar) const {
+	float x,y,z;
+	__host__ __device__ vec3 operator*(const float& scalar) const {
 		return {x * scalar,y * scalar,z * scalar};
 	}
-	__host__ __device__ vec3 operator/(const double& scalar) const {
+	__host__ __device__ vec3 operator/(const float& scalar) const {
 		return {x / scalar,y / scalar,z / scalar};
 	}
 	__host__ __device__ vec3 operator+(const vec3& a) const {
@@ -42,16 +39,16 @@ struct vec3 {
 		y += v.y;
 		z += v.z;
 	}
-	__host__ __device__ void operator*= (const double& scalar) {
+	__host__ __device__ void operator*= (const float& scalar) {
 		x *= scalar;
 		y *= scalar;
 		z *= scalar;
 	}
-	__host__ __device__ double len() const {
-		return sqrt(x * x + y * y + z * z);
+	__host__ __device__ float len() const {
+		return sqrtf(x * x + y * y + z * z);
 	}
 	__host__ __device__ vec3 norm() const {
-		return *this * rsqrt(x*x+y*y+z*z+epsilon);
+		return *this /len();
 	}
 	__host__ __device__ uint32_t argb() {
 		return (255 << 24) | ((unsigned char)x << 16) | ((unsigned char)y << 8) | (unsigned char)z;
@@ -67,6 +64,9 @@ public:
 	__host__ __device__ vec3 operator*(const vec3& a) const {
 		return x * a.x + y * a.y + z * a.z;
 	};
+	__host__ __device__ matrix operator*(const matrix& a) const {
+		return {a * x,a * y,a * z};
+	};
 };
 
 __host__ __device__ vec3 cross(const vec3& a,const vec3& b) {
@@ -77,11 +77,11 @@ __host__ __device__ vec3 cross(const vec3& a,const vec3& b) {
 	};
 }
 
-__host__ __device__ double dot(const vec3& a,const vec3& b) {
+__host__ __device__ float dot(const vec3& a,const vec3& b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-__host__ matrix rotation(double yaw,double pitch,double roll) {
+__host__ matrix rotation(float yaw,float pitch,float roll) {
 	return {
 		{cos(yaw) * cos(roll) + sin(yaw) * sin(pitch) * sin(roll),-cos(yaw) * sin(roll) + sin(yaw) * sin(pitch) * cos(roll),sin(yaw) * cos(pitch)},
 		{sin(roll) * cos(pitch),cos(roll) * cos(pitch),-sin(pitch)},
@@ -89,47 +89,72 @@ __host__ matrix rotation(double yaw,double pitch,double roll) {
 	};
 }
 
-__host__ matrix rotationY(double theta) {
-	double c = cos(theta); double s = sin(theta);
+__host__ matrix rotationY(float theta) {
+	float c = cosf(theta); float s = sinf(theta);
 	return {
 		{c,0,s},{0,1,0},{-s,0,c} // the rotation matrix is different since i use Y as up X as right and Z as forward
 	};
 };
 
+__host__ matrix rotationZ(float theta) {
+	float c = cosf(theta); float s = sinf(theta);
+	return {
+		{1,0,0},{0,c,s},{0,-s,c} // the rotation matrix is different since i use Y as up X as right and Z as forward
+	};
+};
+
+
+
+
 class trig {
 public:
-	vec3 a,b,c;
+	vec3 a,b,c; // if it is a sphere a = center b.x = radius
 	vec3 color;
 	bool reflective = false;
+	bool sphere = false;
 	__host__ __device__ trig() {};
-	__host__ __device__ trig(vec3 A,vec3 B,vec3 C,vec3 Color,trig* scene,int& sceneSize,bool Reflective = false):a(A),b(B),c(C),color(Color),reflective(Reflective) {
+	__host__ __device__ trig(vec3 A,vec3 B,vec3 C,vec3 Color,trig* scene,int& sceneSize,bool Reflective = false,bool Sphere = false):a(A),b(B),c(C),color(Color),reflective(Reflective),sphere(Sphere) {
 		scene[sceneSize] = *this;
 		sceneSize++;
 	}
 	__device__ bool intersect(const vec3& O,const vec3& D,vec3& p,vec3& N) {
-		N = (cross(b - a,c - a)).norm();
-		if(dot(N,D) > 0) {
-			N = -N; // adjust the surface normal so its in the opposite direction from the ray direction
+		if(!sphere) {
+			N = (cross(b - a,c - a)).norm();
+			if(dot(N,D) > 0) {
+				N = -N; // adjust the surface normal so its in the opposite direction from the ray direction
+			}
+			float t = dot(N,a - O) / dot(N,D);
+			if(t < 0) return false;
+			p = O + D * t + N * epsilon;
+			vec3 v0 = c - a;
+			vec3 v1 = b - a;
+			vec3 v2 = p - a;
+			float d00 = dot(v0,v0);
+			float d01 = dot(v0,v1);
+			float d11 = dot(v1,v1);
+			float d20 = dot(v2,v0);
+			float d21 = dot(v2,v1);
+			float denom = d00 * d11 - d01 * d01;
+			float v = (d11 * d20 - d01 * d21) / denom,u = (d00 * d21 - d01 * d20) / denom;
+			return (u >= 0) && (v >= 0) && (u + v <= 1);
 		}
-		double t = dot(N,a - O) / dot(N,D);
+		vec3 oc = O - a;
+		float A = dot(D,D);
+		float halfB = dot(D,oc);
+		float C = dot(oc,oc) - b.x * b.x;
+		float delta = halfB * halfB -  A * C;
+		if(delta < 0) return false;
+		float sqD = sqrtf(delta);
+		float t = min((-halfB+sqD) / A,(-halfB-sqD) / A);
 		if(t < 0) return false;
 		p = O + D * t;
-		vec3 v0 = c - a;
-		vec3 v1 = b - a;
-		vec3 v2 = p - a;
-		double d00 = dot(v0,v0);
-		double d01 = dot(v0,v1);
-		double d11 = dot(v1,v1);
-		double d20 = dot(v2,v0);
-		double d21 = dot(v2,v1);
-		double denom = d00 * d11 - d01 * d01;
-		double v = (d11 * d20 - d01 * d21) / denom,u = (d00 * d21 - d01 * d20) / denom;
+		N = (p-a)/b.x;
 		p = p + N * epsilon;
-		return (u >= 0) && (v >= 0) && (u + v <= 1);
+		return true;
 	}
 };
 
-__host__ void cube(vec3 edge,double lx,double ly,double lz,vec3 color,trig* scene,int& sceneSize,bool reflective = false) {
+__host__ void cube(vec3 edge,float lx,float ly,float lz,vec3 color,trig* scene,int& sceneSize,bool reflective = false) {
 	trig(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},color,scene,sceneSize,reflective);
 	trig(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{lx,0,0},color,scene,sceneSize,reflective);
 	trig(edge,edge + vec3{0,0,lz},edge + vec3{0,ly,0},color,scene,sceneSize,reflective);
@@ -146,11 +171,11 @@ __host__ void cube(vec3 edge,double lx,double ly,double lz,vec3 color,trig* scen
 
 __device__ int iter = 0;
 
-__device__ double randNorm() {
+__device__ float randNorm() {
 	curandStatePhilox4_32_10_t state;
 	curand_init(34578345785123,threadIdx.x,iter,&state); // deterministic state per thread
 	iter++;
-	return 2.0 * curand_uniform_double(&state) - 1.0;
+	return 2.0f * curand_normal_double(&state) - 1.0f;
 }
 
 
@@ -167,11 +192,11 @@ __device__ vec3 randomVec(vec3 N){
 
 __device__ int castRay(const vec3& O,const vec3& D,trig* scene,int sceneSize,vec3& p,vec3& n) {
 	int closestIdx = -1;
-	double closest_dist = INFINITY;
+	float closest_dist = INFINITY;
 	for(int i = 0; i < sceneSize; i++) {
 		vec3 temp_p,temp_n;
 		if(scene[i].intersect(O,D,temp_p,temp_n)) {
-			double dist = (temp_p - O).len();
+			float dist = (temp_p - O).len();
 			if(dist < closest_dist) {
 				closest_dist = dist;
 				closestIdx = i;
@@ -184,12 +209,12 @@ __device__ int castRay(const vec3& O,const vec3& D,trig* scene,int sceneSize,vec
 }
 
 
-__device__ double compute_light_scalar(const vec3& p,const vec3& n,trig* scene,int sceneSize,const vec3* lights,int lightsSize,bool& visible) { // gets illumination from the brightest of all the lights
-	double max_light_scalar = 0;
+__device__ float compute_light_scalar(const vec3& p,const vec3& n,trig* scene,int sceneSize,const vec3* lights,int lightsSize,bool& visible) { // gets illumination from the brightest of all the lights
+	float max_light_scalar = 0;
 	visible = false;
 	for(int i = 0; i < lightsSize; i++) {
 		vec3 pl,nl;
-		double scalar = (dot((lights[i] - p).norm(),n.norm())); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
+		float scalar = (dot((lights[i] - p).norm(),n.norm())); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
 		if(scalar > max_light_scalar && (castRay(p,(lights[i] - p).norm(),scene,sceneSize,pl,nl) == -1 || (pl - p).len() >= (p - lights[i]).len())) {
 			max_light_scalar = scalar;
 		}
@@ -203,15 +228,15 @@ __device__ double compute_light_scalar(const vec3& p,const vec3& n,trig* scene,i
 	return max_light_scalar;
 }
 
-__device__ double compute_reflected_light_scalar(const vec3& p,const vec3& n,int numRays,int numReflections,trig* scene,int sceneSize,const vec3* lights,int lightsSize) {
-	double max_scalar = -INFINITY;
+__device__ float compute_reflected_light_scalar(const vec3& p,const vec3& n,int numRays,int numReflections,trig* scene,int sceneSize,const vec3* lights,int lightsSize) {
+	float max_scalar = -INFINITY;
 	vec3 d = n;
 	for(int i = 0; i < numRays; i++) {
 		vec3 surf; vec3 surf_norm;
 		int objIdx = castRay(p,d,scene,sceneSize,surf,surf_norm);
 		if(objIdx != -1 && scene[objIdx].reflective) {
 			bool is_visible;
-			double scalar = compute_light_scalar(surf,surf_norm,scene,sceneSize,lights,lightsSize,is_visible);
+			float scalar = compute_light_scalar(surf,surf_norm,scene,sceneSize,lights,lightsSize,is_visible);
 			if(is_visible && scalar > max_scalar) {
 				max_scalar = scalar;
 			}
@@ -229,7 +254,7 @@ __device__ vec3 compute_ray(vec3 O,vec3 D,trig* scene,int sceneSize,const vec3* 
 		int trigIdx = castRay(O,D,scene,sceneSize,p,surf_norm);
 		if(trigIdx != -1) {
 			bool visible;
-			double scalar = (compute_light_scalar(p,surf_norm,scene,sceneSize,lights,lightsSize,visible));
+			float scalar = max(compute_light_scalar(p,surf_norm,scene,sceneSize,lights,lightsSize,visible),0.0f);
 			vec3 pl,nl;
 			if(visible) { // if the point is not facing the light it will not be drawn
 
