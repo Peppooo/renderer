@@ -11,62 +11,73 @@ using namespace std;
 // camera infos
 
 constexpr int w = 1024,h = 1024;
-constexpr float fov = M_PI / 1.8;
+constexpr float fov = M_PI / 1.3;
 constexpr float move_speed = 0.1;
 constexpr float mouse_sens = 0.001;
 float foc_len = w / (2 * tanf(fov / 2));
 
 __constant__ __device__ int reflections = 5;
 
-__global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,trig* scene,float focal_length,int sceneSize,vec3* lights,int lightsSize,bool move_light,int current_light_index) {
+__global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,object* scene,float focal_length,int sceneSize,vec3* lights,int lightsSize,bool move_light,int current_light_index,int ssaa = 1) {
 	int idx = (threadIdx.x + blockIdx.x * blockDim.x);
 	if(idx >= w * h) { return; }
 	int x = idx % w;
 	int y = idx / w;
-	int i = x - w / 2;
-	int j = -(y - h / 2);
+	int iC = x - w / 2;
+	int jC = -(y - h / 2);
+	int samples_count = 0;
+	vec3 sum_sample = {0,0,0};
 	vec3 pixel = {0,0,0};
-	vec3 dir = rotation * vec3{float(i),float(j),focal_length};
+	for(float i = (iC - 1 / 2.0f); i < (iC + 1 / 2); i += (1.0f / ssaa)) {
+		for(float j = (jC - 1 / 2.0f); j < (jC + 1 / 2); j += (1.0f / ssaa)) {
+			vec3 dir = rotation * vec3{i,j,focal_length};
 
-	pixel = compute_ray(origin,dir,scene,sceneSize,lights,lightsSize,reflections);
+			pixel = compute_ray(origin,dir,scene,sceneSize,lights,lightsSize,reflections);
 
-	for(int k = 0; k < lightsSize; k++) {
-		float lightdot = dot(dir.norm(),(lights[k] - origin).norm());
-		if(lightdot > (1 - 0.0001) && lightdot < (1 + 0.0001)) { // draws a sphere in the location of the light
-			pixel = vec3{255,255,255};
-			if(current_light_index == k && move_light)
-			{
-				pixel = vec3{255,0,255};
+			for(int k = 0; k < lightsSize; k++) {
+				float lightdot = dot(dir.norm(),(lights[k] - origin).norm());
+				if(lightdot > (1 - 0.0001) && lightdot < (1 + 0.0001)) { // draws a sphere in the location of the light
+					pixel = vec3{255,255,255};
+					if(current_light_index == k && move_light)
+					{
+						pixel = vec3{255,0,255};
+					}
+				}
 			}
+			sum_sample += pixel;
+			samples_count++;
 		}
 	}
-	data[idx] = pixel.argb();
+	data[idx] = (sum_sample/samples_count).argb();
 }
 
 vec3 origin = {0,0,0};
 bool move_light = false;
+bool move_sphere = false;
 int current_light_index = 0;
 float yaw = 0,pitch = 0,roll = 0;
 int wp = 2,hp = 2;
 
 int main() {
 	// scene infos
-	trig scene[50]; int sceneSize = 0; // scene size calculated step by step 
-	vec3 lights[] = {{0,3,8},{-1,-1.5,10.5}}; const int lightsSize = sizeof(lights) / sizeof(vec3);
+	object scene[50]; int sceneSize = 0; // scene size calculated step by step 
+	vec3 lights[] = {{0,3,8},{-1,-1.5,10.5},{1,1,1}}; const int lightsSize = sizeof(lights) / sizeof(vec3);
 
 	cube(vec3{1,-2,5},3,3,3,vec3{0, 166, 30},scene,sceneSize,true);
 
-	cube(vec3{-2,-2,11},2,2,2,vec3{252, 186, 3},scene,sceneSize,true);
+	//cube(vec3{-2,-2,11},2,2,2,vec3{252, 186, 3},scene,sceneSize,true);
 
-	cube(vec3{-5,-2,4},1,3,7,vec3{150,150,150},scene,sceneSize,true);
+	object chess(vec3{0,-1,11},vec3{-3,-1,11},vec3{0,-1,15},vec3{0,0,0},scene,sceneSize,true,false,true); // triangle shaded with function chess_shading
+
+	cube(vec3{-5,-2,4},1,3,7,vec3{40,40,40},scene,sceneSize,true);
 
 
-	cube(vec3{-10,-2,-1},20,20,20,vec3{70,70,70},scene,sceneSize,false); // container
+	cube(vec3{-10,-2,-1},20,20,20,vec3{150,150,150},scene,sceneSize,false); // container
 
 
-	trig sphere_test(
-		vec3{-3,2,4},
-		vec3{1,0,0},
+	object sphere_test(
+		vec3{0,0,0}, // center
+		vec3{0.5,0,0}, // radius , 0 
 		vec3{0,0,0},
 		vec3{200,0,150},scene,sceneSize,true,true
 	);
@@ -74,16 +85,16 @@ int main() {
 	uint32_t* framebuffer = nullptr;
 
 	// GPU allocations
-	trig* d_scene;
+	object* d_scene;
 	vec3* d_lights;
 	uint32_t* d_framebuffer;
 
 
-	cudaMalloc(&d_scene,sceneSize * sizeof(trig));
+	cudaMalloc(&d_scene,sceneSize * sizeof(object));
 	cudaMalloc(&d_lights,lightsSize * sizeof(vec3));
 	cudaMalloc(&d_framebuffer,w * h * sizeof(uint32_t));
 
-	cudaMemcpy(d_scene,scene,sceneSize * sizeof(trig),cudaMemcpyHostToDevice);
+	cudaMemcpy(d_scene,scene,sceneSize * sizeof(object),cudaMemcpyHostToDevice);
 	cudaMemcpy(d_lights,lights,lightsSize * sizeof(vec3),cudaMemcpyHostToDevice);
 
 
@@ -100,15 +111,17 @@ int main() {
 	SDL_Event e;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 
+	origin = {-1.8415,0,9.21054};
+	yaw = -0.662995;
 
 	while(1) {
-		auto rot = rotationY(yaw);
+		auto rot = rotation(yaw,0,0);
 		while(SDL_PollEvent(&e)) {
 			if(e.type == SDL_QUIT) {
 				return 0;
 			}
 			if(e.type == SDL_MOUSEMOTION) {
-				yaw -= float(e.motion.xrel) * mouse_sens;
+				//yaw -= float(e.motion.xrel) * mouse_sens;
 				pitch += float(e.motion.yrel) * mouse_sens;
 			}
 			if(e.type == SDL_KEYDOWN) {
@@ -119,6 +132,9 @@ int main() {
 						current_light_index++;
 						current_light_index = cycle(current_light_index,lightsSize);
 					}
+				}
+				if(e.key.keysym.scancode == SDL_SCANCODE_P) {
+					move_sphere = !move_sphere;
 				}
 				if(e.key.keysym.scancode == SDL_SCANCODE_W) {
 					move.z += move_speed;
@@ -142,7 +158,10 @@ int main() {
 					wp = 1; hp = 1;
 				}
 				if(!move_light) {
+
 					origin = origin + rot* move; // apply rotation transformation to the move vector
+					scene[sceneSize - 1].a = origin;
+					cudaMemcpy(d_scene,scene,sceneSize * sizeof(object),cudaMemcpyHostToDevice);
 				}
 				else {
 					lights[current_light_index] = lights[current_light_index] + move;
@@ -154,10 +173,13 @@ int main() {
 		SDL_LockTexture(texture,nullptr,(void**)&framebuffer,&pitch);
 
 		int numBlocks = (w * h + 255) / 256;
-		render_pixel << <numBlocks,256 >> > (d_framebuffer,origin,rot,d_scene,foc_len,sceneSize,d_lights,lightsSize,move_light,current_light_index);
-		cudaDeviceSynchronize();
+		render_pixel << <numBlocks,256 >> > (d_framebuffer,origin,rot,d_scene,foc_len,sceneSize,d_lights,lightsSize,move_light,current_light_index,1);
+		cout << origin.x << " , " << origin.y << " , " << origin.z << endl;
+		cout << yaw << endl;
+		//cudaDeviceSynchronize();
 
 		cudaMemcpy(framebuffer,d_framebuffer,w * h * sizeof(uint32_t),cudaMemcpyDeviceToHost);
+
 
 		cudaError_t err = cudaGetLastError();
 
