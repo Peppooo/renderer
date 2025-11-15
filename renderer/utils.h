@@ -232,7 +232,7 @@ __device__ float compute_light_scalar(const vec3& p,const vec3& n,object* scene,
 			max_light_scalar = scalar;
 		}
 	}
-	if(max_light_scalar < 0) {
+	if(max_light_scalar <= 0) {
 		visible = false;
 	}
 	else {
@@ -286,6 +286,5 @@ __device__ vec3 compute_ray(vec3 O,vec3 D,object* scene,int sceneSize,const vec3
 			break;
 		}
 	}
-
 	return done_reflections > 0 ? color / done_reflections : vec3{0,0,0};
 }
