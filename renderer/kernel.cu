@@ -5,18 +5,18 @@
 #include <iostream>
 #include "utils.h"
 
-
 using namespace std;
 
 // camera infos
 
 constexpr int w = 1024,h = 1024;
-constexpr float fov = M_PI / 1.3;
+constexpr float fov = M_PI / 2;
 constexpr float move_speed = 0.1;
 constexpr float mouse_sens = 0.001;
 float foc_len = w / (2 * tanf(fov / 2));
 
 __constant__ __device__ int reflections = 5;
+
 
 __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,object* scene,float focal_length,int sceneSize,vec3* lights,int lightsSize,bool move_light,int current_light_index,int ssaa = 1) {
 	int idx = (threadIdx.x + blockIdx.x * blockDim.x);
@@ -28,8 +28,9 @@ __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,object* 
 	int samples_count = 0;
 	vec3 sum_sample = {0,0,0};
 	vec3 pixel = {0,0,0};
-	for(float i = (iC - 1 / 2.0f); i < (iC + 1 / 2); i += (1.0f / ssaa)) {
-		for(float j = (jC - 1 / 2.0f); j < (jC + 1 / 2); j += (1.0f / ssaa)) {
+	float l = sqrtf(ssaa);
+	for(float i = (iC - 1 / 2.0f); i < (iC + 1 / 2.0f); i += (1.0f / l)) {
+		for(float j = (jC - 1 / 2.0f); j < (jC + 1 / 2.0f); j += (1.0f / l)) {
 			vec3 dir = rotation * vec3{i,j,focal_length};
 
 			pixel = compute_ray(origin,dir,scene,sceneSize,lights,lightsSize,reflections);
@@ -53,10 +54,8 @@ __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,object* 
 
 vec3 origin = {0,0,0};
 bool move_light = false;
-bool move_sphere = false;
 int current_light_index = 0;
 float yaw = 0,pitch = 0,roll = 0;
-int wp = 2,hp = 2;
 
 int main() {
 	// scene infos
@@ -69,15 +68,15 @@ int main() {
 
 	object chess(vec3{0,-1,11},vec3{-3,-1,11},vec3{0,-1,15},vec3{0,0,0},scene,sceneSize,true,false,true); // triangle shaded with function chess_shading
 
-	cube(vec3{-5,-2,4},1,3,7,vec3{40,40,40},scene,sceneSize,true);
+	cube(vec3{-5,-2,4},1,3,7,vec3{10,10,50},scene,sceneSize,true);
 
 
 	cube(vec3{-10,-2,-1},20,20,20,vec3{150,150,150},scene,sceneSize,false); // container
 
 
 	object sphere_test(
-		vec3{0,0,0}, // center
-		vec3{0.5,0,0}, // radius , 0 
+		vec3{0.723185 , 0.7 , 9.81167}, // center
+		vec3{1,0,0}, // radius , 0 
 		vec3{0,0,0},
 		vec3{200,0,150},scene,sceneSize,true,true
 	);
@@ -111,8 +110,8 @@ int main() {
 	SDL_Event e;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 
-	origin = {-1.8415,0,9.21054};
-	yaw = -0.662995;
+	origin = {-1.68782,0,7.77129};
+	yaw = 5.85793;
 
 	while(1) {
 		auto rot = rotation(yaw,0,0);
@@ -121,7 +120,7 @@ int main() {
 				return 0;
 			}
 			if(e.type == SDL_MOUSEMOTION) {
-				//yaw -= float(e.motion.xrel) * mouse_sens;
+				yaw -= float(e.motion.xrel) * mouse_sens;
 				pitch += float(e.motion.yrel) * mouse_sens;
 			}
 			if(e.type == SDL_KEYDOWN) {
@@ -132,9 +131,6 @@ int main() {
 						current_light_index++;
 						current_light_index = cycle(current_light_index,lightsSize);
 					}
-				}
-				if(e.key.keysym.scancode == SDL_SCANCODE_P) {
-					move_sphere = !move_sphere;
 				}
 				if(e.key.keysym.scancode == SDL_SCANCODE_W) {
 					move.z += move_speed;
@@ -154,14 +150,9 @@ int main() {
 				if(e.key.keysym.scancode == SDL_SCANCODE_E) {
 					move.y += move_speed;
 				}
-				if(e.key.keysym.scancode == SDL_SCANCODE_H) {
-					wp = 1; hp = 1;
-				}
 				if(!move_light) {
 
 					origin = origin + rot* move; // apply rotation transformation to the move vector
-					scene[sceneSize - 1].a = origin;
-					cudaMemcpy(d_scene,scene,sceneSize * sizeof(object),cudaMemcpyHostToDevice);
 				}
 				else {
 					lights[current_light_index] = lights[current_light_index] + move;
@@ -173,9 +164,9 @@ int main() {
 		SDL_LockTexture(texture,nullptr,(void**)&framebuffer,&pitch);
 
 		int numBlocks = (w * h + 255) / 256;
-		render_pixel << <numBlocks,256 >> > (d_framebuffer,origin,rot,d_scene,foc_len,sceneSize,d_lights,lightsSize,move_light,current_light_index,1);
-		cout << origin.x << " , " << origin.y << " , " << origin.z << endl;
-		cout << yaw << endl;
+		render_pixel << <numBlocks,256 >> > (d_framebuffer,origin,rot,d_scene,foc_len,sceneSize,d_lights,lightsSize,move_light,current_light_index,4);
+		//cout << origin.x << " , " << origin.y << " , " << origin.z << endl;
+		//cout << yaw << endl;
 		//cudaDeviceSynchronize();
 
 		cudaMemcpy(framebuffer,d_framebuffer,w * h * sizeof(uint32_t),cudaMemcpyDeviceToHost);

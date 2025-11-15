@@ -232,7 +232,7 @@ __device__ float compute_light_scalar(const vec3& p,const vec3& n,object* scene,
 			max_light_scalar = scalar;
 		}
 	}
-	if(max_light_scalar < 0) {
+	if(max_light_scalar <= 0) {
 		visible = false;
 	}
 	else {
@@ -265,27 +265,30 @@ __device__ vec3 compute_ray(vec3 O,vec3 D,object* scene,int sceneSize,const vec3
 	for(int i = 0; i < reflections; i++) {
 		vec3 p,surf_norm = {0,0,0}; // p is the intersection location
 		int objIdx = castRay(O,D,scene,sceneSize,p,surf_norm);
+		bool prev_visible = true;
 		if(objIdx != -1) {
 			bool visible;
 			float scalar = max(compute_light_scalar(p,surf_norm,scene,sceneSize,lights,lightsSize,visible),0.0f);
 			vec3 pl,nl;
-			if(visible) { // if the point is not facing the light it will not be drawn
-
-				color += (scene[objIdx].color(p) * scalar);
+			if(prev_visible) { // if the point is not facing the light it will not be drawn
+				color += (scene[objIdx].color(p) * scalar) * visible;
 				done_reflections++;
 				if(done_reflections < reflections&& scene[objIdx].reflective) { // if its not the last reflection or triangle hit not reflective
 					O = p;
 					D = (D - surf_norm * 2 * dot(surf_norm,D)).norm(); // reflection based on surface normal
 				}
 			}
+			else {
+				break;
+			}
 			if(!scene[objIdx].reflective) {
 				break;
 			}
+			prev_visible = visible;
 		}
 		else {
 			break;
 		}
 	}
-
 	return done_reflections > 0 ? color / done_reflections : vec3{0,0,0};
 }
