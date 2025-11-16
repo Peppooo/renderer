@@ -7,6 +7,9 @@
 using namespace std;
 
 __device__ __constant__ float epsilon = 1e-5;
+__device__ bool d_hq = false;
+
+
 
 int cycle(int i,int max) {
 	if(i == max) {
@@ -44,11 +47,14 @@ struct vec3 {
 		y *= scalar;
 		z *= scalar;
 	}
+	__host__ __device__ bool operator==(const vec3& a) const {
+		return (x == a.x) && (y == a.y) && (z == a.z);
+	}
 	__host__ __device__ float len() const {
 		return sqrtf(x * x + y * y + z * z);
 	}
 	__host__ __device__ vec3 norm() const {
-		return *this /len();
+		return *this * rsqrtf(x * x + y * y + z * z);
 	}
 	__host__ __device__ uint32_t argb() {
 		return (255 << 24) | ((unsigned char)x << 16) | ((unsigned char)y << 8) | (unsigned char)z;
@@ -108,15 +114,13 @@ __device__ vec3 chess_shading(vec3 p) {
 	if(((modff(abs(p.x),&t) <= 0.5f)+(modff(abs(p.z),&t) <= 0.5f) )== 1) return {0,0,0}; else return {255,255,255}; // grid like texture
 }
 
-//__device__ vec3(*d_chess_shading)(vec3) = chess_shading;
-
 
 class object {
 public:
 	vec3 a,b,c; // if it is a sphere a = center b.x = radius
 	vec3 d_color;
 	bool use_f_shading = false;
-	vec3(*f_shading)(vec3);
+	vec3 normal = {0,0,0};
 	__device__ vec3 color(vec3 p) { 
 		if(!use_f_shading) return d_color; else {
 			return chess_shading(p-a);
@@ -127,12 +131,13 @@ public:
 	bool sphere = false;
 	__host__ __device__ object() {};
 	__host__ __device__ object(vec3 A,vec3 B,vec3 C,vec3 Color,object* scene,int& sceneSize,bool Reflective = false,bool Sphere = false,bool f_shaded = false):a(A),b(B),c(C),d_color(Color),reflective(Reflective),sphere(Sphere),use_f_shading(f_shaded) {
+		normal = (cross(B - A,C - A)).norm();
 		scene[sceneSize] = *this;
 		sceneSize++;
 	}
 	__device__ bool intersect(const vec3& O,const vec3& D,vec3& p,vec3& N) {
 		if(!sphere) {
-			N = (cross(b - a,c - a)).norm();
+			N = normal;
 			if(dot(N,D) > 0) {
 				N = -N; // adjust the surface normal so its in the opposite direction from the ray direction
 			}
@@ -161,7 +166,7 @@ public:
 		float t = min((-halfB+sqD) / A,(-halfB-sqD) / A);
 		if(t < 0) return false;
 		p = O + D * t;
-		N = (p-a)/b.x;
+		N = (p - a) / b.x;
 		p = p + N * epsilon;
 		return true;
 	}
@@ -186,7 +191,7 @@ __device__ int iter = 0;
 
 __device__ float randNorm() {
 	curandStatePhilox4_32_10_t state;
-	curand_init(34578345785123,threadIdx.x,iter,&state); // deterministic state per thread
+	curand_init(34578345785123,threadIdx.x+threadIdx.y*16,iter,&state); // deterministic state per thread
 	iter++;
 	return 2.0f * curand_normal_double(&state) - 1.0f;
 }
@@ -227,8 +232,9 @@ __device__ float compute_light_scalar(const vec3& p,const vec3& n,object* scene,
 	visible = false;
 	for(int i = 0; i < lightsSize; i++) {
 		vec3 pl,nl;
-		float scalar = (dot((lights[i] - p).norm(),n.norm())); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
-		if(scalar > max_light_scalar && (castRay(p,(lights[i] - p).norm(),scene,sceneSize,pl,nl) == -1 || (pl - p).len() >= (p - lights[i]).len())) {
+		vec3 dir_to_light = (lights[i] - p).norm();
+		float scalar = dot(dir_to_light,n.norm()); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
+		if(scalar > max_light_scalar && (castRay(p,dir_to_light,scene,sceneSize,pl,nl) == -1 || (pl - p).len() >= (p - lights[i]).len())) {
 			max_light_scalar = scalar;
 		}
 	}
@@ -241,20 +247,22 @@ __device__ float compute_light_scalar(const vec3& p,const vec3& n,object* scene,
 	return max_light_scalar;
 }
 
-__device__ float compute_reflected_light_scalar(const vec3& p,const vec3& n,int numRays,int numReflections,object* scene,int sceneSize,const vec3* lights,int lightsSize) {
+__device__ float compute_reflected_light_scalar(const vec3& p,const vec3& n,int numRays,bool& visible,object* scene,int sceneSize,const vec3* lights,int lightsSize) {
 	float max_scalar = -INFINITY;
 	vec3 d = n;
+	visible = false;
 	for(int i = 0; i < numRays; i++) {
 		vec3 surf; vec3 surf_norm;
 		int objIdx = castRay(p,d,scene,sceneSize,surf,surf_norm);
 		if(objIdx != -1 && scene[objIdx].reflective) {
-			bool is_visible;
-			float scalar = compute_light_scalar(surf,surf_norm,scene,sceneSize,lights,lightsSize,is_visible);
-			if(is_visible && scalar > max_scalar) {
+			bool is_visible = false;
+			float scalar = compute_light_scalar(surf,surf_norm,scene,sceneSize,lights,lightsSize,is_visible) * dot(d,(surf - p).norm());
+			if(is_visible && scalar > max_scalar && scalar > epsilon) {
+				visible = true;
 				max_scalar = scalar;
 			}
 		}
-		d = (randomVec(n)*0.4+n*0.6);
+		d = (randomVec(n));
 	}
 	return max_scalar;
 }
@@ -267,20 +275,20 @@ __device__ vec3 compute_ray(vec3 O,vec3 D,object* scene,int sceneSize,const vec3
 		int objIdx = castRay(O,D,scene,sceneSize,p,surf_norm);
 		bool prev_visible = true;
 		if(objIdx != -1) {
-			bool visible;
-			float scalar = max(compute_light_scalar(p,surf_norm,scene,sceneSize,lights,lightsSize,visible),0.0f);
+			bool n_visible,visible;
+			float scalar=compute_light_scalar(p,surf_norm,scene,sceneSize,lights,lightsSize,visible);
+			if(scalar<=0.99 && d_hq) scalar = max(scalar,compute_reflected_light_scalar(p,surf_norm,128,n_visible,scene,sceneSize,lights,lightsSize));
+			visible = visible || (n_visible && d_hq);
 			vec3 pl,nl;
-			if(prev_visible) { // if the point is not facing the light it will not be drawn
-				color += (scene[objIdx].color(p) * scalar) * visible;
+			if((prev_visible && i != 0) || visible) { // if the surface before isnt lit then dont add anything
+				color += (scene[objIdx].color(p) * scalar) *visible;
 				done_reflections++;
-				if(done_reflections < reflections&& scene[objIdx].reflective) { // if its not the last reflection or triangle hit not reflective
+				if(i < reflections && scene[objIdx].reflective) { // if its not the last reflection or triangle hit not reflective
 					O = p;
 					D = (D - surf_norm * 2 * dot(surf_norm,D)).norm(); // reflection based on surface normal
 				}
 			}
-			else {
-				break;
-			}
+			else break;
 			if(!scene[objIdx].reflective) {
 				break;
 			}

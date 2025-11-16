@@ -3,6 +3,7 @@
 #include "device_launch_parameters.h"
 #include <SDL2/SDL.h>
 #include <iostream>
+#include <chrono>
 #include "utils.h"
 
 using namespace std;
@@ -14,25 +15,29 @@ constexpr float fov = M_PI / 2;
 constexpr float move_speed = 0.1;
 constexpr float mouse_sens = 0.001;
 float foc_len = w / (2 * tanf(fov / 2));
+bool hq = false;
 
 __constant__ __device__ int reflections = 5;
-
+__constant__ __device__ int ssaa = 4;
 
 __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,object* scene,float focal_length,int sceneSize,vec3* lights,int lightsSize,bool move_light,int current_light_index,int ssaa = 1) {
-	int idx = (threadIdx.x + blockIdx.x * blockDim.x);
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int idx = (x+y*w);
 	if(idx >= w * h) { return; }
-	int x = idx % w;
-	int y = idx / w;
+
 	int iC = x - w / 2;
 	int jC = -(y - h / 2);
 	int samples_count = 0;
 	vec3 sum_sample = {0,0,0};
 	vec3 pixel = {0,0,0};
-	float l = sqrtf(ssaa);
-	for(float i = (iC - 1 / 2.0f); i < (iC + 1 / 2.0f); i += (1.0f / l)) {
-		for(float j = (jC - 1 / 2.0f); j < (jC + 1 / 2.0f); j += (1.0f / l)) {
+	float steps_l = rsqrtf(ssaa);
+	for(float i = (iC - 1 / 2.0f); i < (iC + 1 / 2.0f); i += steps_l) {
+		for(float j = (jC - 1 / 2.0f); j < (jC + 1 / 2.0f); j += steps_l) {
 			vec3 dir = rotation * vec3{i,j,focal_length};
-
+			//if(d_hq) {
+			//	printf("%d\n",y);
+			//}
 			pixel = compute_ray(origin,dir,scene,sceneSize,lights,lightsSize,reflections);
 
 			for(int k = 0; k < lightsSize; k++) {
@@ -57,10 +62,14 @@ bool move_light = false;
 int current_light_index = 0;
 float yaw = 0,pitch = 0,roll = 0;
 
+__shared__ object* d_scene;
+__shared__ vec3* d_lights;
+__shared__ uint32_t* d_framebuffer;
+
 int main() {
 	// scene infos
 	object scene[50]; int sceneSize = 0; // scene size calculated step by step 
-	vec3 lights[] = {{0,3,8},{-1,-1.5,10.5},{1,1,1}}; const int lightsSize = sizeof(lights) / sizeof(vec3);
+	vec3 lights[] = {{0,3,8},{-1,-1.5,10.5}}; const int lightsSize = sizeof(lights) / sizeof(vec3);
 
 	cube(vec3{1,-2,5},3,3,3,vec3{0, 166, 30},scene,sceneSize,true);
 
@@ -73,7 +82,6 @@ int main() {
 
 	cube(vec3{-10,-2,-1},20,20,20,vec3{150,150,150},scene,sceneSize,false); // container
 
-
 	object sphere_test(
 		vec3{0.723185 , 0.7 , 9.81167}, // center
 		vec3{1,0,0}, // radius , 0 
@@ -84,9 +92,6 @@ int main() {
 	uint32_t* framebuffer = nullptr;
 
 	// GPU allocations
-	object* d_scene;
-	vec3* d_lights;
-	uint32_t* d_framebuffer;
 
 
 	cudaMalloc(&d_scene,sceneSize * sizeof(object));
@@ -113,7 +118,14 @@ int main() {
 	origin = {-1.68782,0,7.77129};
 	yaw = 5.85793;
 
+	auto lastTime = std::chrono::high_resolution_clock::now();
+	int nframe = 0;
 	while(1) {
+		nframe++;
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<float> deltaTime = currentTime - lastTime;
+		lastTime = currentTime;
+		cout << "frame time: " << deltaTime.count() * 1000 << " ms" << endl;
 		auto rot = rotation(yaw,0,0);
 		while(SDL_PollEvent(&e)) {
 			if(e.type == SDL_QUIT) {
@@ -150,6 +162,10 @@ int main() {
 				if(e.key.keysym.scancode == SDL_SCANCODE_E) {
 					move.y += move_speed;
 				}
+				if(e.key.keysym.scancode == SDL_SCANCODE_H) {
+					hq = !hq;
+					cudaMemcpyToSymbol(d_hq,&hq,sizeof(bool),0,cudaMemcpyHostToDevice);
+				}
 				if(!move_light) {
 
 					origin = origin + rot* move; // apply rotation transformation to the move vector
@@ -164,7 +180,9 @@ int main() {
 		SDL_LockTexture(texture,nullptr,(void**)&framebuffer,&pitch);
 
 		int numBlocks = (w * h + 255) / 256;
-		render_pixel << <numBlocks,256 >> > (d_framebuffer,origin,rot,d_scene,foc_len,sceneSize,d_lights,lightsSize,move_light,current_light_index,4);
+		dim3 block(8,8);
+		dim3 grid((w + block.x - 1) / block.x,(h + block.y - 1) / block.y);
+		render_pixel<<<grid,block>>>(d_framebuffer,origin,rot,d_scene,foc_len,sceneSize,d_lights,lightsSize,move_light,current_light_index,ssaa);
 		//cout << origin.x << " , " << origin.y << " , " << origin.z << endl;
 		//cout << yaw << endl;
 		//cudaDeviceSynchronize();
@@ -173,7 +191,6 @@ int main() {
 
 
 		cudaError_t err = cudaGetLastError();
-
 		if(err != cudaSuccess) printf("CUDA error: %s\n",cudaGetErrorString(err));
 		SDL_UnlockTexture(texture);
 		SDL_RenderClear(renderer);
