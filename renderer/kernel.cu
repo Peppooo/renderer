@@ -4,18 +4,11 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <chrono>
-#include "utils.h"
+#include "renderer.cuh"
 
 using namespace std;
 
 // camera infos
-
-constexpr int w = 1024,h = 1024;
-constexpr float fov = M_PI / 1.5;
-constexpr float move_speed = 0.1;
-constexpr float mouse_sens = 0.001;
-float foc_len = w / (2 * tanf(fov / 2));
-bool hq = false;
 
 __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float focal_length,bool move_light,int current_light_index,int ssaa,int reflections) {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -52,15 +45,6 @@ __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float fo
 	data[idx] = (sum_sample/samples_count).argb();
 }
 
-vec3 origin = {0,0,0};
-bool move_light = false;
-int current_light_index = 0;
-float yaw = 0,pitch = 0,roll = 0;
-
-int reflections = 5;
-int ssaa = 1;
-
-
 __shared__ uint32_t* d_framebuffer;
 
 int main() {
@@ -88,11 +72,6 @@ int main() {
 
 	uint32_t* framebuffer = nullptr;
 
-	// GPU allocations
-
-
-	//cudaMalloc(&d_scene,sceneSize * sizeof(object));
-	//cudaMalloc(&d_lights,lightsSize * sizeof(vec3));
 	cudaMalloc(&d_framebuffer,w * h * sizeof(uint32_t));
 
 	cudaMemcpyToSymbol(scene,h_scene,h_sceneSize * sizeof(object),0,cudaMemcpyHostToDevice);
@@ -102,7 +81,9 @@ int main() {
 	cudaMemcpyToSymbol(lightsSize,&h_lightsSize,sizeof(int),0,cudaMemcpyHostToDevice);
 
 	SDL_Init(SDL_INIT_VIDEO);
-	SDL_Window* window = SDL_CreateWindow("Framebuffer",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,w,h,0);
+
+	// SDL Initialization
+	SDL_Window* window = SDL_CreateWindow("RT",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,w,h,0);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED);
 	SDL_Texture* texture = SDL_CreateTexture(
 		renderer,
@@ -114,15 +95,13 @@ int main() {
 	SDL_Event e;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 
-	origin = {-1.68782,0,7.77129};
-	yaw = 5.85793;
-
 	auto lastTime = std::chrono::high_resolution_clock::now();
 	int nframe = 0;
+
 	while(1) {
 		nframe++;
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<float> deltaTime = currentTime - lastTime;
+		auto currentTime = chrono::high_resolution_clock::now();
+		chrono::duration<float> deltaTime = currentTime - lastTime;
 		lastTime = currentTime;
 		cout << "frame time: " << deltaTime.count() * 1000 << " ms" << endl;
 		auto rot = rotation(yaw,0,0);
