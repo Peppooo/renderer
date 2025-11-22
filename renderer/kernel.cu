@@ -1,6 +1,6 @@
-﻿#define SDL_MAIN_HANDLED
-#include "cuda_runtime.h"
+﻿#include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <chrono>
@@ -13,7 +13,7 @@ using namespace std;
 __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float focal_length,bool move_light,int current_light_index,int ssaa,int reflections) {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
-	int idx = (x+y*w);
+	int idx = (x + y * w);
 	if(idx >= w * h) { return; }
 
 	int iC = x - w / 2;
@@ -42,7 +42,7 @@ __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float fo
 		}
 	}
 
-	data[idx] = (sum_sample/samples_count).argb();
+	data[idx] = (sum_sample / samples_count).argb();
 }
 
 __shared__ uint32_t* d_framebuffer;
@@ -146,7 +146,7 @@ int main() {
 				}
 				if(!move_light) {
 
-					origin = origin + rot* move; // apply rotation transformation to the move vector
+					origin = origin + rot * move; // apply rotation transformation to the move vector
 				}
 				else {
 					h_lights[current_light_index] = h_lights[current_light_index] + move;

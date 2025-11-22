@@ -92,7 +92,7 @@ __host__ __device__ float dot(const vec3& a,const vec3& b) {
 __host__ matrix rotation(float yaw,float pitch,float roll) {
 	return {
 		{cos(yaw) * cos(roll) + sin(yaw) * sin(pitch) * sin(roll),-cos(yaw) * sin(roll) + sin(yaw) * sin(pitch) * cos(roll),sin(yaw) * cos(pitch)},
-		{sin(roll)* cos(pitch),cos(roll)* cos(pitch),-sin(pitch)},
+		{sin(roll) * cos(pitch),cos(roll) * cos(pitch),-sin(pitch)},
 		{-sin(yaw) * cos(roll) + cos(yaw) * sin(pitch) * sin(roll),sin(yaw) * sin(roll) + cos(yaw) * sin(pitch) * cos(roll),cos(yaw) * cos(pitch)}
 	};
 }
@@ -116,12 +116,12 @@ __device__ int iter = 0;
 
 __device__ float randNorm() {
 	curandStatePhilox4_32_10_t state;
-	curand_init(34578345785123,threadIdx.x+threadIdx.y*16,iter,&state); // deterministic state per thread
+	curand_init(34578345785123,threadIdx.x + threadIdx.y * 16,iter,&state); // deterministic state per thread
 	iter++;
 	return curand_normal_double(&state);
 }
 
 
-__device__ vec3 randomVec(){
+__device__ vec3 randomVec() {
 	return {randNorm(),randNorm(),randNorm()};
 }

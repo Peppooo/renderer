@@ -1,3 +1,4 @@
+#pragma once
 #include "objects.cuh"
 #include "settings.cuh"
 

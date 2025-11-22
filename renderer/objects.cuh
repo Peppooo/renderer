@@ -3,7 +3,7 @@
 
 __device__ vec3 chess_shading(vec3 p) {
 	float t;
-	if(((modff(abs(p.x+1000),&t) <= 0.5f) + (modff(abs(p.z+1000),&t) <= 0.5f)) == 1) return {0,0,0}; else return {255,255,255}; // grid like texture
+	if(((modff(abs(p.x + 1000),&t) <= 0.5f) + (modff(abs(p.z + 1000),&t) <= 0.5f)) == 1) return {0,0,0}; else return {255,255,255}; // grid like texture
 }
 
 
