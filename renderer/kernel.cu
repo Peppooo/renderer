@@ -61,7 +61,7 @@ int main() {
 	cube(vec3{-5,-2,4},1,3,7,vec3{10,10,50},h_scene,h_sceneSize,true);
 
 
-	cube(vec3{-10,-2,-1},20,20,20,vec3{150,150,150},h_scene,h_sceneSize,false,true); // container
+	cube(vec3{-10,-2,-1},20,20,20,vec3{150,150,150},h_scene,h_sceneSize,false,false); // container
 
 	object sphere_test(
 		vec3{0.723185 , 0.7 , 9.81167}, // center

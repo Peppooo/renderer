@@ -16,4 +16,4 @@ float yaw = 0,pitch = 0,roll = 0;
 int reflections = 5;
 int ssaa = 4;
 
-int reflected_rays = 8;
+int reflected_rays = 32;
