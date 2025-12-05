@@ -1,14 +1,16 @@
 #pragma once
+#include <stdio.h>
 #include "objects.cuh"
 #include "settings.cuh"
 
-__device__ int castRay(const vec3& O,const vec3& D,vec3& p,vec3& n) {
+__device__  int castRay(const vec3& O,const vec3& D,vec3& p,vec3& n) {
 	int closestIdx = -1;
 	float closest_dist = INFINITY;
+	float dist = 0;
 	for(int i = 0; i < sceneSize; i++) {
 		vec3 temp_p,temp_n;
 		if(scene[i].intersect(O,D,temp_p,temp_n)) {
-			float dist = (temp_p - O).len2();
+			dist = (temp_p - O).len2();
 			if(dist < closest_dist) {
 				closest_dist = dist;
 				closestIdx = i;
@@ -21,9 +23,8 @@ __device__ int castRay(const vec3& O,const vec3& D,vec3& p,vec3& n) {
 }
 
 
-__device__ float compute_light_scalar(const vec3& p,const vec3& n,bool& visible) { // gets illumination from the brightest of all the lights
+__device__  float compute_light_scalar(const vec3& p,const vec3& n) { // gets illumination from the brightest of all the lights
 	float max_light_scalar = 0;
-	visible = false;
 	for(int i = 0; i < lightsSize; i++) {
 		vec3 pl,nl;
 		vec3 dir_to_light = (lights[i] - p).norm();
@@ -32,19 +33,11 @@ __device__ float compute_light_scalar(const vec3& p,const vec3& n,bool& visible)
 			max_light_scalar = scalar;
 		}
 	}
-	if(max_light_scalar <= 0) {
-		visible = false;
-	}
-	else {
-		visible = true;
-	}
-	return max_light_scalar;
+	return max(max_light_scalar,0.0f);
 }
 
-__device__ float compute_reflected_light_scalar(const vec3& p,const vec3& n,int numRays,bool& visible) {
+__device__  float compute_reflected_light_scalar(const vec3& p,const vec3& n,int numRays) {
 	float max_scalar = -INFINITY;
-	vec3 d;
-	visible = false;
 	int scene_skips = 0;
 	for(int i = 0; i < numRays + scene_skips; i++) {
 		// picking ray direction by pointing to random point on each reflective object in the scene
@@ -55,43 +48,43 @@ __device__ float compute_reflected_light_scalar(const vec3& p,const vec3& n,int 
 		}
 		vec3 d = {0,0,0};
 		if(!scene[current_scene_idx].sphere) {
-			vec3 r_n = randomVec();
-			float sum_r_n = r_n.x + r_n.y + r_n.z;
-			d = (scene[current_scene_idx].a * r_n.x + scene[current_scene_idx].b * r_n.y + scene[current_scene_idx].c * r_n.z) - p;
+			if((i-scene_skips) / sceneSize < 1) {
+				d = (scene[current_scene_idx].a + scene[current_scene_idx].b + scene[current_scene_idx].c) / 3 - p;
+			}
+			else {
+				vec3 r_n = randomVec();
+				float sum_r_n = r_n.x + r_n.y + r_n.z;
+				d = (scene[current_scene_idx].a * r_n.x + scene[current_scene_idx].b * r_n.y + scene[current_scene_idx].c * r_n.z)/sum_r_n - p;
+			}
 		}
 		else {
-			d = (scene[current_scene_idx].a + randomVec().norm() * scene[current_scene_idx].b.x) - p;
+			d = scene[current_scene_idx].a - p;
 		};
 
 		vec3 surf; vec3 surf_norm;
 		int objIdx = castRay(p,d,surf,surf_norm);
 		if(objIdx != -1 && scene[objIdx].reflective) {
-			bool is_visible = false;
-			float scalar = compute_light_scalar(surf,surf_norm,is_visible) * dot(n,(surf - p).norm());
-			if(is_visible && scalar > max_scalar) {
-				visible = true;
+			float scalar = compute_light_scalar(surf,surf_norm) * dot(n,(surf - p).norm());
+			if(scalar > max_scalar) {
 				max_scalar = scalar;
 			}
 		}
 	}
-	return max_scalar;
+	return max(max_scalar,0.0f);
 }
 
 
-__device__ vec3 compute_ray(vec3 O,vec3 D,int reflections = 2,int rlRays = 64) {
+__device__  vec3 compute_ray(vec3 O,vec3 D,int reflections = 2,int rlRays = 64) {
 	vec3 color = {0,0,0}; int done_reflections = 0;
 	for(int i = 0; i < reflections; i++) {
 		vec3 p,surf_norm = {0,0,0}; // p is the intersection location
 		int objIdx = castRay(O,D,p,surf_norm);
-		bool prev_visible = true;
 		if(objIdx != -1) {
-			bool n_visible,visible;
-			float scalar = compute_light_scalar(p,surf_norm,visible);
-			if(scalar <= 0.99 && d_hq) scalar = max(scalar,compute_reflected_light_scalar(p,surf_norm,rlRays,n_visible));
-			visible = visible || (n_visible && d_hq);
-			vec3 pl,nl;
-			if((prev_visible && i != 0) || visible) { // if the surface before isnt lit then dont add anything
-				color += (scene[objIdx].color(p) * scalar) * visible;
+			float scalar = compute_light_scalar(p,surf_norm);
+			if(scalar <= 0.99 && d_hq) scalar = max(scalar,compute_reflected_light_scalar(p,surf_norm,rlRays));
+
+			if(scalar>0) { // if the surface before isnt lit then dont add anything
+				color += (scene[objIdx].color(p) * scalar);
 				done_reflections++;
 				if(i < reflections&& scene[objIdx].reflective) { // if its not the last reflection or triangle hit not reflective
 					O = p;
@@ -102,7 +95,6 @@ __device__ vec3 compute_ray(vec3 O,vec3 D,int reflections = 2,int rlRays = 64) {
 			if(!scene[objIdx].reflective) {
 				break;
 			}
-			prev_visible = visible;
 		}
 		else {
 			break;

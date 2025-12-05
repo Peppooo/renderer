@@ -81,6 +81,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="objects.cuh" />
+    <ClInclude Include="physics.cuh" />
     <ClInclude Include="renderer.cuh" />
     <ClInclude Include="settings.cuh" />
     <ClInclude Include="algebra.cuh" />

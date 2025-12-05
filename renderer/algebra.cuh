@@ -10,7 +10,7 @@ __device__ __constant__ float epsilon = 1e-5;
 __device__ bool d_hq = false;
 
 
-int cycle(int i,int max) {
+int cycle(const int& i,const int& max) {
 	if(i == max) {
 		return 0;
 	}
@@ -21,19 +21,19 @@ class matrix;
 
 struct vec3 {
 	float x,y,z;
-	__host__ __device__ vec3 operator*(const float& scalar) const {
+	__host__ __device__  vec3 operator*(const float& scalar) const {
 		return {x * scalar,y * scalar,z * scalar};
 	}
-	__host__ __device__ vec3 operator/(const float& scalar) const {
+	__host__ __device__  vec3 operator/(const float& scalar) const {
 		return {x / scalar,y / scalar,z / scalar};
 	}
-	__host__ __device__ vec3 operator+(const vec3& a) const {
+	__host__ __device__  vec3 operator+(const vec3& a) const {
 		return {x + a.x,y + a.y,z + a.z};
 	}
-	__host__ __device__ vec3 operator-(const vec3& a) const {
+	__host__ __device__  vec3 operator-(const vec3& a) const {
 		return {x - a.x,y - a.y,z - a.z};
 	}
-	__host__ __device__ vec3 operator-() const {
+	__host__ __device__  vec3 operator-() const {
 		return {-x,-y,-z};
 	}
 	__host__ __device__ void operator+=(const vec3& v) {
@@ -41,24 +41,24 @@ struct vec3 {
 		y += v.y;
 		z += v.z;
 	}
-	__host__ __device__ void operator*= (const float& scalar) {
+	__host__ __device__  void operator*= (const float& scalar) {
 		x *= scalar;
 		y *= scalar;
 		z *= scalar;
 	}
-	__host__ __device__ bool operator==(const vec3& a) const {
+	__host__ __device__  bool operator==(const vec3& a) const {
 		return (x == a.x) && (y == a.y) && (z == a.z);
 	}
-	__host__ __device__ float len() const {
+	__host__ __device__  float len() const {
 		return sqrtf(x * x + y * y + z * z);
 	}
-	__host__ __device__ float len2() const {
+	__host__ __device__  float len2() const {
 		return x * x + y * y + z * z;
 	}
-	__host__ __device__ vec3 norm() const {
+	__host__ __device__  vec3 norm() const {
 		return *this * rsqrtf(x * x + y * y + z * z);
 	}
-	__host__ __device__ uint32_t argb() {
+	__host__ __device__  uint32_t argb() const {
 		return (255 << 24) | ((unsigned char)x << 16) | ((unsigned char)y << 8) | (unsigned char)z;
 	}
 };
@@ -77,7 +77,7 @@ public:
 	};
 };
 
-__host__ __device__ vec3 cross(const vec3& a,const vec3& b) {
+__host__ __device__  vec3 cross(const vec3& a,const vec3& b) {
 	return {
 		a.y * b.z - a.z * b.y,
 		a.z * b.x - a.x * b.z,
@@ -85,31 +85,31 @@ __host__ __device__ vec3 cross(const vec3& a,const vec3& b) {
 	};
 }
 
-__host__ __device__ float dot(const vec3& a,const vec3& b) {
+__host__ __device__  float dot(const vec3& a,const vec3& b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-__host__ matrix rotation(float yaw,float pitch,float roll) {
-	return {
-		{cos(yaw) * cos(roll) + sin(yaw) * sin(pitch) * sin(roll),-cos(yaw) * sin(roll) + sin(yaw) * sin(pitch) * cos(roll),sin(yaw) * cos(pitch)},
-		{sin(roll) * cos(pitch),cos(roll) * cos(pitch),-sin(pitch)},
-		{-sin(yaw) * cos(roll) + cos(yaw) * sin(pitch) * sin(roll),sin(yaw) * sin(roll) + cos(yaw) * sin(pitch) * cos(roll),cos(yaw) * cos(pitch)}
-	};
+__host__ __device__
+matrix rotation(const float& yaw,const float& pitch,const float& roll)
+{
+	const float cy = cosf(yaw);   const float sy = sinf(yaw);
+	const float cp = cosf(pitch); const float sp = sinf(pitch);
+	const float cr = cosf(roll);  const float sr = sinf(roll);
+
+	matrix Rz = {cy, -sy, 0,
+				  sy,  cy, 0,
+				  0 ,   0, 1};
+
+	matrix Rx = {1,   0 ,   0,
+				  0,  cp, -sp,
+				  0,  sp,  cp};
+
+	matrix Ry = {cr, 0, sr,
+				  0 , 1, 0,
+				 -sr, 0, cr};
+
+	return Rz * Rx * Ry;
 }
-
-__host__ matrix rotationY(float theta) {
-	float c = cosf(theta); float s = sinf(theta);
-	return {
-		{c,0,s},{0,1,0},{-s,0,c} // the rotation matrix is different since i use Y as up X as right and Z as forward
-	};
-};
-
-__host__ matrix rotationZ(float theta) {
-	float c = cosf(theta); float s = sinf(theta);
-	return {
-		{1,0,0},{0,c,s},{0,-s,c} // the rotation matrix is different since i use Y as up X as right and Z as forward
-	};
-};
 
 
 __device__ int iter = 0;
