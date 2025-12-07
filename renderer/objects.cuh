@@ -37,13 +37,13 @@ public:
 		scene[sceneSize] = *this;
 		sceneSize++;
 	}
-	__device__ vec3 color(vec3 p) {
+	__device__ vec3 color(vec3 p) const {
 		if(!use_f_shading) return d_color; else {
 			return chess_shading(p);
 		}
 
 	};
-	__device__  bool intersect(const vec3& O,const vec3& D,vec3& p,vec3& N) {
+	__device__  bool intersect(const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere)
 		{
 			N = t_normal;

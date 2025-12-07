@@ -6,7 +6,7 @@
 
 using namespace std;
 
-__device__ __constant__ float epsilon = 1e-5;
+__device__ __constant__ float epsilon = 1e-3;
 __device__ bool d_hq = false;
 
 
@@ -56,7 +56,8 @@ struct vec3 {
 		return x * x + y * y + z * z;
 	}
 	__host__ __device__  vec3 norm() const {
-		return *this * rsqrtf(x * x + y * y + z * z);
+		float rsq = rsqrtf(x * x + y * y + z * z);
+		return *this * (rsq==0?epsilon:rsq);
 	}
 	__host__ __device__  uint32_t argb() const {
 		return (255 << 24) | ((unsigned char)x << 16) | ((unsigned char)y << 8) | (unsigned char)z;

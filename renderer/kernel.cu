@@ -1,6 +1,9 @@
 ﻿#define SDL_MAIN_HANDLED
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
+#include <cuda_gl_interop.h>
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <chrono>
@@ -15,11 +18,6 @@ __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float fo
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
 	int idx = (x + y * w);
 	if(idx >= w * h) { return; }
-
-	if(x == 100 && y == 100) {
-		//printf("%f \n",scene[12].center.z);
-	}
-
 
 	int iC = x - w / 2;
 	int jC = -(y - h / 2);
@@ -50,7 +48,7 @@ __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float fo
 	data[idx] = (sum_sample / samples_count).argb();
 }
 
-__shared__ uint32_t* d_framebuffer;
+__device__ uint32_t* d_framebuffer;
 
 
 int main() {
@@ -61,42 +59,33 @@ int main() {
 
 
 
-	//cube(vec3{-2,-2,11},2,2,2,vec3{252, 186, 3},scene,sceneSize,true);
-	//object chess(vec3{0,-1,11},vec3{-3,-1,11},vec3{0,-1,15},vec3{0,0,0},h_scene,h_sceneSize,true,false,true); // triangle shaded with function chess_shading
-	//cube(vec3{-5,-2,4},1,3,7,vec3{10,10,50},h_scene,h_sceneSize,true);
-	/*object sphere_test(
+	cube(vec3{-2,-2,11},2,2,2,vec3{252, 186, 3},scene,sceneSize,true);
+	object chess(vec3{0,-1,11},vec3{-3,-1,11},vec3{0,-1,15},vec3{0,0,0},h_scene,h_sceneSize,true,false,true); // triangle shaded with function chess_shading
+	cube(vec3{-5,-2,4},1,3,7,vec3{10,10,50},h_scene,h_sceneSize,true);
+	object sphere_test(
 		vec3{0.723185f , 0.7f , 9.81167f}, // center
 		vec3{1.0f,0.0f,0.0f}, // radius , 0 
 		vec3{0.0f,0.0f,0.0f},
 		vec3{200.0f,0.0f,150.0f},h_scene,h_sceneSize,true,true
-	);*/
+	);
 
-	//cube(vec3{1,-2,5},3,3,3,vec3{200, 200, 200},h_scene,h_sceneSize,true);
+	cube(vec3{1,-2,5},3,3,3,vec3{10, 200, 10},h_scene,h_sceneSize,true);
 
-	cube(vec3{-10,-2,-1},20,20,20,vec3{200,0,0},h_scene,h_sceneSize,false,false); // container
+	cube(vec3{-10,-2,-1},20,20,20,vec3{150,150,150},h_scene,h_sceneSize,false,false); // container
 
 
-	sphere(vec3{0.99f,1,5},0.5f,vec3{50,50,50},h_scene,h_sceneSize,false,false);
-	sphere(vec3{-0.99f,1,5},0.5f,vec3{50,50,50},h_scene,h_sceneSize,false,false);
 	vec3 gravity = {0,-2.0f};// m/s^2
-	//h_scene[h_sceneSize - 1].velocity = vec3{0.25,0.25,0.25};
-
-
-	sphere(vec3{1.0f,1.0f,3.0f},0.5f,vec3{50,50,50},h_scene,h_sceneSize,false,false); // camera
-	int cam_idx = h_sceneSize - 1;
-
-
 
 	uint32_t* framebuffer = nullptr;
 
-	cudaMalloc(&d_framebuffer,w * h * sizeof(uint32_t));
+	cudaMalloc(&d_framebuffer,sizeof(uint32_t)* w * h);
 
 	cudaMemcpyToSymbol(lights,h_lights,h_lightsSize * sizeof(vec3),0,cudaMemcpyHostToDevice);
 
 	cudaMemcpyToSymbol(sceneSize,&h_sceneSize,sizeof(int),0,cudaMemcpyHostToDevice);
 	cudaMemcpyToSymbol(lightsSize,&h_lightsSize,sizeof(int),0,cudaMemcpyHostToDevice);
 
-	SDL_Init(SDL_INIT_VIDEO);
+	SDL_Init(SDL_INIT_EVERYTHING);
 
 	// SDL Initialization
 	SDL_Window* window = SDL_CreateWindow("RT",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,w,h,0);
@@ -116,6 +105,7 @@ int main() {
 
 	float sum_time = 0;
 
+
 	while(1) {
 		nframe++;
 		auto currentTime = chrono::high_resolution_clock::now();
@@ -123,13 +113,11 @@ int main() {
 		lastTime = currentTime;
 		sum_time += deltaTime.count() * 1000;
 
-		
 
-		if(nframe % 5 == 0) {
-			cout << "frame time: " << sum_time/5 << " ms" << endl; // average frame time out of 10
+		if(nframe % 10 == 0) {
+			cout << "frame time: " << sum_time/ 10 << " ms" << endl; // average frame time out of 10
 			sum_time = 0;
 		}
-
 
 		auto rot = rotation(0,pitch,yaw);
 		while(SDL_PollEvent(&e)) {
@@ -171,24 +159,15 @@ int main() {
 					hq = !hq;
 					cudaMemcpyToSymbol(d_hq,&hq,sizeof(bool),0,cudaMemcpyHostToDevice);
 				}
-				if(!move_light) {
-					h_scene[cam_idx].a += rotation(0,0,yaw) * move;
+				if(!move_light && move.len2() != 0) {
+					origin += rotation(0,0,yaw) * move.norm()*move_speed;
 				}
-				else {
+				if(move_light) {
 					h_lights[current_light_index] = h_lights[current_light_index] + move;
 					cudaMemcpyToSymbol(lights,h_lights,h_lightsSize * sizeof(vec3),0,cudaMemcpyHostToDevice);
 				}
 			}
 		}
-		for(int i = 0; i < h_sceneSize; i++) {
-			if(!h_scene[i].sphere) continue;
-			if(i != cam_idx) {
-				h_scene[i].velocity += gravity*deltaTime.count();
-			}
-			h_scene[i].a += h_scene[i].velocity*deltaTime.count();
-		}
-		handleCollisions(h_scene,h_sceneSize);
-		origin = h_scene[cam_idx].a; // camera is relative to the sphere so it follow collisions rules
 		cudaMemcpyToSymbol(scene,h_scene,h_sceneSize * sizeof(object),0,cudaMemcpyHostToDevice);
 
 
@@ -206,7 +185,7 @@ int main() {
 		}
 		cudaDeviceSynchronize();
 
-		cudaMemcpy(framebuffer,d_framebuffer,w * h * sizeof(uint32_t),cudaMemcpyDeviceToHost);
+		cudaMemcpy(framebuffer,d_framebuffer,sizeof(uint32_t)*w*h,cudaMemcpyDeviceToHost);
 
 
 		SDL_UnlockTexture(texture);

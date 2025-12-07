@@ -74,6 +74,8 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <FastMath>false</FastMath>
+      <Optimization>O2</Optimization>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

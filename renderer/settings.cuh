@@ -13,7 +13,7 @@ bool move_light = false;
 int current_light_index = 0;
 float yaw = 0.0f,pitch = 0.0f,roll = 0.0f;
 
-int reflections = 3;
+int reflections = 5;
 int ssaa = 1;
 
-__constant__ int reflected_rays = 32;
+__constant__ int reflected_rays = 128;

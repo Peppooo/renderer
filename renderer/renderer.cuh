@@ -23,7 +23,7 @@ __device__  int castRay(const vec3& O,const vec3& D,vec3& p,vec3& n) {
 }
 
 
-__device__  float compute_light_scalar(const vec3& p,const vec3& n) { // gets illumination from the brightest of all the lights
+__device__  float direct_light(const vec3& p,const vec3& n) { // gets illumination from the brightest of all the lights
 	float max_light_scalar = 0;
 	for(int i = 0; i < lightsSize; i++) {
 		vec3 pl,nl;
@@ -36,7 +36,7 @@ __device__  float compute_light_scalar(const vec3& p,const vec3& n) { // gets il
 	return max(max_light_scalar,0.0f);
 }
 
-__device__  float compute_reflected_light_scalar(const vec3& p,const vec3& n,int numRays) {
+__device__  float indirect_light(const vec3& p,const vec3& n,const int& numRays) {
 	float max_scalar = -INFINITY;
 	int scene_skips = 0;
 	for(int i = 0; i < numRays + scene_skips; i++) {
@@ -64,9 +64,13 @@ __device__  float compute_reflected_light_scalar(const vec3& p,const vec3& n,int
 		vec3 surf; vec3 surf_norm;
 		int objIdx = castRay(p,d,surf,surf_norm);
 		if(objIdx != -1 && scene[objIdx].reflective) {
-			float scalar = compute_light_scalar(surf,surf_norm) * dot(n,(surf - p).norm());
+			float scalar = direct_light(surf,surf_norm) * dot(n,(surf - p).norm());
 			if(scalar > max_scalar) {
+
 				max_scalar = scalar;
+			}
+			if(max_scalar >= 0.99f) {
+				return max_scalar;
 			}
 		}
 	}
@@ -80,8 +84,8 @@ __device__  vec3 compute_ray(vec3 O,vec3 D,int reflections = 2,int rlRays = 64) 
 		vec3 p,surf_norm = {0,0,0}; // p is the intersection location
 		int objIdx = castRay(O,D,p,surf_norm);
 		if(objIdx != -1) {
-			float scalar = compute_light_scalar(p,surf_norm);
-			if(scalar <= 0.99 && d_hq) scalar = max(scalar,compute_reflected_light_scalar(p,surf_norm,rlRays));
+			float scalar = direct_light(p,surf_norm);
+			if(scalar <= 0.99 && d_hq) scalar = max(scalar,indirect_light(p,surf_norm,rlRays));
 
 			if(scalar>0) { // if the surface before isnt lit then dont add anything
 				color += (scene[objIdx].color(p) * scalar);
