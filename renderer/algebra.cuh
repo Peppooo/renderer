@@ -21,45 +21,45 @@ class matrix;
 
 struct vec3 {
 	float x,y,z;
-	__host__ __device__  vec3 operator*(const float& scalar) const {
+	__host__ __device__ __forceinline__ vec3 operator*(const float& scalar) const {
 		return {x * scalar,y * scalar,z * scalar};
 	}
-	__host__ __device__  vec3 operator/(const float& scalar) const {
+	__host__ __device__ __forceinline__ vec3 operator/(const float& scalar) const {
 		return {x / scalar,y / scalar,z / scalar};
 	}
-	__host__ __device__  vec3 operator+(const vec3& a) const {
+	__host__ __device__ __forceinline__ vec3 operator+(const vec3& a) const {
 		return {x + a.x,y + a.y,z + a.z};
 	}
-	__host__ __device__  vec3 operator-(const vec3& a) const {
+	__host__ __device__ __forceinline__ vec3 operator-(const vec3& a) const {
 		return {x - a.x,y - a.y,z - a.z};
 	}
-	__host__ __device__  vec3 operator-() const {
+	__host__ __device__ __forceinline__ vec3 operator-() const {
 		return {-x,-y,-z};
 	}
-	__host__ __device__ void operator+=(const vec3& v) {
+	__host__ __device__ __forceinline__ void operator+=(const vec3& v) {
 		x += v.x;
 		y += v.y;
 		z += v.z;
 	}
-	__host__ __device__  void operator*= (const float& scalar) {
+	__host__ __device__ __forceinline__ void operator*= (const float& scalar) {
 		x *= scalar;
 		y *= scalar;
 		z *= scalar;
 	}
-	__host__ __device__  bool operator==(const vec3& a) const {
+	__host__ __device__ __forceinline__ bool operator==(const vec3& a) const {
 		return (x == a.x) && (y == a.y) && (z == a.z);
 	}
-	__host__ __device__  float len() const {
+	__host__ __device__ __forceinline__ float len() const {
 		return sqrtf(x * x + y * y + z * z);
 	}
-	__host__ __device__  float len2() const {
+	__host__ __device__ __forceinline__ float len2() const {
 		return x * x + y * y + z * z;
 	}
-	__host__ __device__  vec3 norm() const {
+	__host__ __device__ __forceinline__ vec3 norm() const {
 		float rsq = rsqrtf(x * x + y * y + z * z);
 		return *this * (rsq==0?epsilon:rsq);
 	}
-	__host__ __device__  uint32_t argb() const {
+	__host__ __device__ uint32_t argb() const {
 		return (255 << 24) | ((unsigned char)x << 16) | ((unsigned char)y << 8) | (unsigned char)z;
 	}
 };
@@ -70,15 +70,15 @@ public:
 	vec3 x;
 	vec3 y;
 	vec3 z;
-	__host__ __device__ vec3 operator*(const vec3& a) const {
+	__host__ __device__ __forceinline__ vec3 operator*(const vec3& a) const {
 		return x * a.x + y * a.y + z * a.z;
 	};
-	__host__ __device__ matrix operator*(const matrix& a) const {
+	__host__ __device__ __forceinline__ matrix operator*(const matrix& a) const {
 		return {a * x,a * y,a * z};
 	};
 };
 
-__host__ __device__  vec3 cross(const vec3& a,const vec3& b) {
+__host__ __device__ __forceinline__ vec3 cross(const vec3& a,const vec3& b) {
 	return {
 		a.y * b.z - a.z * b.y,
 		a.z * b.x - a.x * b.z,
@@ -86,11 +86,11 @@ __host__ __device__  vec3 cross(const vec3& a,const vec3& b) {
 	};
 }
 
-__host__ __device__  float dot(const vec3& a,const vec3& b) {
+__host__ __device__ __forceinline__ float dot(const vec3& a,const vec3& b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-__host__ __device__
+__host__ __device__ __forceinline__
 matrix rotation(const float& yaw,const float& pitch,const float& roll)
 {
 	const float cy = cosf(yaw);   const float sy = sinf(yaw);
@@ -115,7 +115,7 @@ matrix rotation(const float& yaw,const float& pitch,const float& roll)
 
 __device__ int iter = 0;
 
-__device__ float randNorm() {
+__device__ float randNorm() { // TODO: improve randNorm() function 
 	curandStatePhilox4_32_10_t state;
 	curand_init(34578345785123,threadIdx.x + threadIdx.y * 16,iter,&state); // deterministic state per thread
 	iter++;

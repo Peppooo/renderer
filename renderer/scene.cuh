@@ -1,0 +1,103 @@
+#pragma once
+#include "algebra.cuh"
+#include "objects.cuh"
+
+#define MAX_OBJ 100
+
+struct Scene {
+public:
+	/*float a_x[MAX_OBJ],a_y[MAX_OBJ],a_z[MAX_OBJ];
+	float b_x[MAX_OBJ],b_y[MAX_OBJ],b_z[MAX_OBJ];
+	float c_x[MAX_OBJ],c_y[MAX_OBJ],c_z[MAX_OBJ];
+	float color_x[MAX_OBJ],color_y[MAX_OBJ],color_z[MAX_OBJ];
+	float vel_x[MAX_OBJ],vel_y[MAX_OBJ],vel_z[MAX_OBJ];
+	bool use_f_shading[MAX_OBJ];
+	float t_normal_x[MAX_OBJ],t_normal_y[MAX_OBJ],t_normal_z[MAX_OBJ];
+	float center_x[MAX_OBJ],center_y[MAX_OBJ],center_z[MAX_OBJ];
+	bool reflective[MAX_OBJ],sphere[MAX_OBJ];*/
+	vec3 a[MAX_OBJ];
+	vec3 b[MAX_OBJ];
+	vec3 c[MAX_OBJ];
+	vec3 d_color[MAX_OBJ];
+	vec3 velocity[MAX_OBJ];
+	vec3 t_normal[MAX_OBJ];
+	vec3 center[MAX_OBJ];
+	bool reflective[MAX_OBJ],sphere[MAX_OBJ],use_f_shading[MAX_OBJ];
+	int sceneSize;
+	void addObject(const object& obj) {
+		a[sceneSize] = obj.a;
+		b[sceneSize] = obj.b;
+		c[sceneSize] = obj.c;
+		d_color[sceneSize] = obj.d_color;
+		t_normal[sceneSize] = obj.t_normal;
+		center[sceneSize] = obj.center;
+		reflective[sceneSize] = obj.reflective;
+		sphere[sceneSize] = obj.sphere;
+		use_f_shading[sceneSize] = obj.use_f_shading;
+		sceneSize++;
+	}
+	__device__ __forceinline__ vec3 color(const int& idx,const vec3& p) const {
+		if(!use_f_shading[idx]) return d_color[idx]; else {
+			return chess_shading(p);
+		}
+
+	};
+	__host__ __device__ __forceinline__ bool intersect(const int& idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
+		if(!sphere[idx])
+		{
+			vec3 v0 = c[idx] - a[idx];
+			vec3 v1 = b[idx] - a[idx];
+			N = t_normal[idx];
+			if(dot(N,D) > 0) N = -N;
+			vec3 pvec = cross(D,v0);
+			float det = dot(v1,pvec);
+
+			// Backface culling? If you want both sides, use abs(det)
+			if(fabs(det) < epsilon) return false;
+
+			float invDet = 1.0 / det;
+
+			vec3 tvec = O - a[idx];
+			float u = dot(tvec,pvec) * invDet;
+			if(u < 0.0 || u > 1.0) return false;
+
+			vec3 qvec = cross(tvec,v1);
+			float v = dot(D,qvec) * invDet;
+			if(v < 0.0 || u + v > 1.0) return false;
+
+			float t = dot(v0,qvec) * invDet;
+			if(t < 0.0) return false;
+
+			// Output hit point
+			vec3 hit = O + D * t;
+
+			// OUTPUTS
+			p = hit + N * epsilon;
+
+			return true;
+		}
+		vec3 oc = O - a[idx];
+		float A = dot(D,D);
+		float halfB = dot(D,oc);
+		float C = dot(oc,oc) - b[idx].x * b[idx].x;
+
+		float delta = halfB * halfB - A * C;
+		if(delta < 0.0) return false;
+
+		float sqD = sqrtf(delta);
+
+		float t1 = (-halfB - sqD) / A;
+		float t = (t1 >= 0.0) ? t1 : (-halfB + sqD) / A;
+		if(t < 0.0) return false;
+
+		vec3 hit = O + D * t;
+		N = (hit - a[idx]).norm();
+
+		if(dot(N,D) > 0) return false; // if inside no intersection
+
+		p = hit + N * epsilon;
+
+		return true;
+	}
+};
+

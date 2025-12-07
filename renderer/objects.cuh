@@ -37,13 +37,13 @@ public:
 		scene[sceneSize] = *this;
 		sceneSize++;
 	}
-	__device__ vec3 color(vec3 p) const {
+	__device__ __forceinline__ vec3 color(vec3 p) const {
 		if(!use_f_shading) return d_color; else {
 			return chess_shading(p);
 		}
 
 	};
-	__device__  bool intersect(const vec3& O,const vec3& D,vec3& p,vec3& N) const {
+	__host__ __device__ __forceinline__ bool intersect(const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere)
 		{
 			N = t_normal;
@@ -100,12 +100,6 @@ public:
 	}
 };
 
-__constant__ object scene[50];
-__constant__ vec3 lights[16];
-
-__constant__ int sceneSize;
-__constant__ int lightsSize;
-
 
 __host__ void cube(vec3 edge,float lx,float ly,float lz,vec3 color,object* scene,int& sceneSize,bool reflective = false,bool shaded = false) {
 	object(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},color,scene,sceneSize,reflective,false,shaded);
@@ -132,8 +126,8 @@ void trigSphereDist(const int& sphereIdx,const int& trigIdx,float& dist,vec3& su
 	}
 	const vec3& A = scene[trigIdx].a,B = scene[trigIdx].b,C = scene[trigIdx].c;
 	const vec3& P = scene[sphereIdx].a; const float& radius = scene[sphereIdx].b.x;
-		// Precompute edges
-		vec3 AB = B - A;
+	// Precompute edges
+	vec3 AB = B - A;
 	vec3 AC = C - A;
 
 	// Vector from A to point

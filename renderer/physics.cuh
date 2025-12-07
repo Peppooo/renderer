@@ -29,7 +29,7 @@ void handlePhysics(object* scene,const int& sceneSize) {
 				const int &idxSphere = scene[j].sphere ? j : i;
 				trigSphereDist(idxSphere,idxTrig,dist,p,scene);
 				if(dist < 0) {
-					object &trig = scene[idxTrig],&sphere=scene[idxSphere];
+					object &sphere=scene[idxSphere];
 					vec3 n = p - sphere.a; // trig == a , sphere == b
 					sphere.a=p-n.norm()*(sphere.b.x+0.001f);
 

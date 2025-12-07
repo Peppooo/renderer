@@ -75,7 +75,7 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <FastMath>false</FastMath>
-      <Optimization>O2</Optimization>
+      <Optimization>InheritFromHost</Optimization>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -85,6 +85,7 @@
     <ClInclude Include="objects.cuh" />
     <ClInclude Include="physics.cuh" />
     <ClInclude Include="renderer.cuh" />
+    <ClInclude Include="scene.cuh" />
     <ClInclude Include="settings.cuh" />
     <ClInclude Include="algebra.cuh" />
   </ItemGroup>
