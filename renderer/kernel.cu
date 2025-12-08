@@ -72,7 +72,7 @@ int main() {
 	int nframe = 0;
 
 	float sum_time = 0;
-
+	
 	while(1) {
 		nframe++;
 		auto currentTime = chrono::high_resolution_clock::now();

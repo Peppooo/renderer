@@ -113,16 +113,11 @@ matrix rotation(const float& yaw,const float& pitch,const float& roll)
 }
 
 
-__device__ int iter = 0;
-
-__device__ float randNorm() { // TODO: improve randNorm() function 
-	curandStatePhilox4_32_10_t state;
-	curand_init(34578345785123,threadIdx.x + threadIdx.y * 16,iter,&state); // deterministic state per thread
-	iter++;
-	return curand_normal_double(&state);
+__device__ float randNorm(curandStatePhilox4_32_10_t* state) {
+	return curand_normal_double(state);
 }
 
 
-__device__ vec3 randomVec() {
-	return {randNorm(),randNorm(),randNorm()};
+__device__ vec3 randomVec(curandStatePhilox4_32_10_t* state) {
+	return {randNorm(state),randNorm(state),randNorm(state)};
 }

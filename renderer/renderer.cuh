@@ -41,7 +41,7 @@ __device__ __forceinline__ float direct_light(const vec3& p,const vec3& n) { // 
 	return max(max_light_scalar,0.0f);
 }
 
-__device__ __forceinline__ float indirect_light(const vec3& p,const vec3& n,const int& numRays) {
+__device__ __forceinline__ float indirect_light(const vec3& p,const vec3& n,const int& numRays,curandStatePhilox4_32_10_t* state) {
 	float max_scalar = -INFINITY;
 	int scene_skips = 0;
 	for(int i = 0; i < numRays + scene_skips; i++) {
@@ -57,7 +57,7 @@ __device__ __forceinline__ float indirect_light(const vec3& p,const vec3& n,cons
 				d = (scene.a[current_scene_idx] + scene.b[current_scene_idx] + scene.c[current_scene_idx]) / 3 - p;
 			}
 			else {
-				vec3 r_n = randomVec();
+				vec3 r_n = randomVec(state);
 				float sum_r_n = r_n.x + r_n.y + r_n.z;
 				d = (scene.a[current_scene_idx] * r_n.x + scene.b[current_scene_idx] * r_n.y + scene.c[current_scene_idx] * r_n.z)/sum_r_n - p;
 			}
@@ -82,14 +82,14 @@ __device__ __forceinline__ float indirect_light(const vec3& p,const vec3& n,cons
 	return max(max_scalar,0.0f);
 }
 
-__device__ __forceinline__ vec3 compute_ray(vec3 O,vec3 D,int reflections = 2,int rlRays = 64) {
+__device__ __forceinline__ vec3 compute_ray(vec3 O,vec3 D,curandStatePhilox4_32_10_t* state,int reflections = 2,int rlRays = 64) {
 	vec3 color = {0,0,0}; int done_reflections = 0;
 	for(int i = 0; i < reflections; i++) {
 		vec3 p,surf_norm = {0,0,0}; // p is the intersection location
 		int objIdx = castRay(O,D,p,surf_norm);
 		if(objIdx != -1) {
 			float scalar = direct_light(p,surf_norm);
-			if(scalar <= 0.99 && d_hq) scalar = max(scalar,indirect_light(p,surf_norm,rlRays));
+			if(scalar <= 0.99 && d_hq) scalar = max(scalar,indirect_light(p,surf_norm,rlRays,state));
 
 			if(scalar>0) { // if the surface before isnt lit then dont add anything
 				color += (scene.color(objIdx,p) * scalar);
@@ -114,6 +114,8 @@ __device__ __forceinline__ vec3 compute_ray(vec3 O,vec3 D,int reflections = 2,in
 __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float focal_length,bool move_light,int current_light_index,int ssaa,int reflections) {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	curandStatePhilox4_32_10_t state;
+	curand_init(34578345785123,(w/8)*y+x,0,&state);
 	int idx = (x + y * w);
 	if(idx >= w * h) return;
 
@@ -126,7 +128,7 @@ __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float fo
 	for(float i = (iC); i < (iC + 1); i += steps_l) {
 		for(float j = (jC); j < (jC + 1); j += steps_l) {
 			vec3 dir = rotation * vec3{i,j,focal_length};
-			pixel = compute_ray(origin,dir,reflections,reflected_rays);
+			pixel = compute_ray(origin,dir,&state,reflections,reflected_rays);
 
 			if(x == 100 && y == 100) {
 				//printf("R: %f".x);
