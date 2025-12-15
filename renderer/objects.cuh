@@ -1,38 +1,36 @@
 #pragma once
 #include "algebra.cuh"
+#include "material.cuh"
 
 __device__ vec3 chess_shading(vec3 p) {
 	float t;
-	if(((modff(fabs(p.x + 1000),&t) <= 0.5f) + (modff(fabs(p.z + 1000),&t) <= 0.5f)) == 1) return {0,0,0}; else return {255,255,255}; // grid like texture
+	if(((modff(fabs(p.x + 1000),&t) <= 0.5f) + (modff(fabs(p.z + 1000),&t) <= 0.5f)) == 1) return {0,0,50}; else return {255,255,255}; // grid like texture
 }
 
 
-class object {
+class object { 
 private:
 	vec3 v0;
 	vec3 v1;
-	float d00;
-	float d01;
-	float d11;
 	float area;
 public:
 	vec3 a,b,c; // if it is a sphere a = center b.x = radius
 	vec3 d_color;
+	material mat;
 	vec3 velocity;
 	bool use_f_shading;
 	vec3 t_normal;
 	vec3 center; // IF YOU CHANGE THIS IT WILL NOT CHANGE THE CENTER OF THE SPHERE
-	bool reflective;
 	bool sphere;
 	__host__ object() {};
-	__host__ object(vec3 A,vec3 B,vec3 C,vec3 Color,object* scene,int& sceneSize,bool Reflective = false,bool Sphere = false,bool f_shaded = false):a(A),b(B),c(C),d_color(Color),reflective(Reflective),sphere(Sphere),use_f_shading(f_shaded),velocity(vec3{0,0,0}) {
+	__host__ object(vec3 A,vec3 B,vec3 C,vec3 Color,object* scene,int& sceneSize,material Mat,bool Sphere = false,bool f_shaded = false):a(A),b(B),c(C),d_color(Color),mat(Mat),sphere(Sphere),use_f_shading(f_shaded),velocity(vec3{0,0,0}) {
 		center = sphere ? a : (A + B + C) / 3.0f;
 		v0 = c - a;
 		v1 = b - a;
 		t_normal = (cross(v0,v1)).norm();
-		d00 = dot(v0,v0);
-		d01 = dot(v0,v1);
-		d11 = dot(v1,v1);
+		float d00 = dot(v0,v0);
+		float d01 = dot(v0,v1);
+		float d11 = dot(v1,v1);
 		area = d00 * d11 - d01 * d01;
 		scene[sceneSize] = *this;
 		sceneSize++;
@@ -41,7 +39,6 @@ public:
 		if(!use_f_shading) return d_color; else {
 			return chess_shading(p);
 		}
-
 	};
 	__host__ __device__ __forceinline__ bool intersect(const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere)
@@ -100,24 +97,39 @@ public:
 	}
 };
 
-
-__host__ void cube(vec3 edge,float lx,float ly,float lz,vec3 color,object* scene,int& sceneSize,bool reflective = false,bool shaded = false) {
-	object(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},color,scene,sceneSize,reflective,false,shaded);
-	object(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{lx,0,0},color,scene,sceneSize,reflective,false,shaded);
-	object(edge,edge + vec3{0,0,lz},edge + vec3{0,ly,0},color,scene,sceneSize,reflective,false,shaded);
-	object(edge + vec3{0,0,lz},edge + vec3{0,ly,lz},edge + vec3{0,ly,0},color,scene,sceneSize,reflective,false,shaded);
-	object(edge + vec3{lx,0,lz},edge + vec3{lx,ly,lz},edge + vec3{lx,0,0},color,scene,sceneSize,reflective,false,shaded);
-	object(edge + vec3{lx,0,0},edge + vec3{lx,ly,0},edge + vec3{lx,ly,lz},color,scene,sceneSize,reflective,false,shaded);
-	object(edge + vec3{lx,0,lz},edge + vec3{0,0,lz},edge + vec3{lx,ly,lz},color,scene,sceneSize,reflective,false,shaded);
-	object(edge + vec3{lx,ly,lz},edge + vec3{0,ly,lz},edge + vec3{0,0,lz},color,scene,sceneSize,reflective,false,shaded);
-	object(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},color,scene,sceneSize,reflective,false,shaded);
-	object(edge + vec3{0,0,0},edge + vec3{lx,0,0},edge + vec3{0,0,lz},color,scene,sceneSize,reflective,false,shaded);
-	object(edge + vec3{lx,0,lz},edge + vec3{lx,0,0},edge + vec3{0,0,lz},color,scene,sceneSize,reflective,false,shaded);
-	object(edge + vec3{lx,ly,lz},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},color,scene,sceneSize,reflective,false,shaded); // a little bit hard coded but i dont care its good (maybe i could have made a box intersection function or do this automatically
+__host__ void plane(vec3 a,vec3 b,vec3 c,vec3 d,vec3 color,object* scene,int& sceneSize,material mat,bool shaded = false) { // only works for a square for now
+	vec3 points[4] = {a,b,c,d};
+	int perpPointIdx = -1;
+	float maxDist = -1;
+	for(int i = 1; i < 4; i++) {
+		float currDist = (points[0] - points[i]).len2();
+		if(currDist > maxDist) {
+			perpPointIdx = i;
+			maxDist = currDist;
+		};
+	}
+	swap(points[2],points[perpPointIdx]);
+	object(points[0],points[1],points[3],color,scene,sceneSize,mat,false,shaded);
+	object(points[2],points[1],points[3],color,scene,sceneSize,mat,false,shaded);
 }
 
-__host__ void sphere(vec3 center,float radius,vec3 color,object* scene,int& sceneSize,bool reflective = false,bool shaded = false) {
-	object(center,vec3{radius,0.0f,0.0f},vec3{0.0f,0.0f,0.0f},color,scene,sceneSize,reflective,true,shaded);
+__host__ void cube(vec3 edge,float lx,float ly,float lz,vec3 color,object* scene,int& sceneSize,material mat,bool shaded = false) {
+	object(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},color,scene,sceneSize,mat,false,shaded);
+	object(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{lx,0,0},color,scene,sceneSize,mat,false,shaded);
+	object(edge,edge + vec3{0,0,lz},edge + vec3{0,ly,0},color,scene,sceneSize,mat,false,shaded);
+	object(edge + vec3{0,0,lz},edge + vec3{0,ly,lz},edge + vec3{0,ly,0},color,scene,sceneSize,mat,false,shaded);
+	object(edge + vec3{lx,0,lz},edge + vec3{lx,ly,lz},edge + vec3{lx,0,0},color,scene,sceneSize,mat,false,shaded);
+	object(edge + vec3{lx,0,0},edge + vec3{lx,ly,0},edge + vec3{lx,ly,lz},color,scene,sceneSize,mat,false,shaded);
+	object(edge + vec3{lx,0,lz},edge + vec3{0,0,lz},edge + vec3{lx,ly,lz},color,scene,sceneSize,mat,false,shaded);
+	object(edge + vec3{lx,ly,lz},edge + vec3{0,ly,lz},edge + vec3{0,0,lz},color,scene,sceneSize,mat,false,shaded);
+	object(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},color,scene,sceneSize,mat,false,shaded);
+	object(edge + vec3{0,0,0},edge + vec3{lx,0,0},edge + vec3{0,0,lz},color,scene,sceneSize,mat,false,shaded);
+	object(edge + vec3{lx,0,lz},edge + vec3{lx,0,0},edge + vec3{0,0,lz},color,scene,sceneSize,mat,false,shaded);
+	object(edge + vec3{lx,ly,lz},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},color,scene,sceneSize,mat,false,shaded); // a little bit hard coded but i dont care its good (maybe i could have made a box intersection function or do this automatically
+}
+
+__host__ void sphere(vec3 center,float radius,vec3 color,object* scene,int& sceneSize,material mat,bool shaded = false) {
+	object(center,vec3{radius,0.0f,0.0f},vec3{0.0f,0.0f,0.0f},color,scene,sceneSize,mat,true,shaded);
 }
 
 void trigSphereDist(const int& sphereIdx,const int& trigIdx,float& dist,vec3& surf,object* scene) { // idx1 == trig

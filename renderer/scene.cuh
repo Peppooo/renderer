@@ -6,15 +6,6 @@
 
 struct Scene {
 public:
-	/*float a_x[MAX_OBJ],a_y[MAX_OBJ],a_z[MAX_OBJ];
-	float b_x[MAX_OBJ],b_y[MAX_OBJ],b_z[MAX_OBJ];
-	float c_x[MAX_OBJ],c_y[MAX_OBJ],c_z[MAX_OBJ];
-	float color_x[MAX_OBJ],color_y[MAX_OBJ],color_z[MAX_OBJ];
-	float vel_x[MAX_OBJ],vel_y[MAX_OBJ],vel_z[MAX_OBJ];
-	bool use_f_shading[MAX_OBJ];
-	float t_normal_x[MAX_OBJ],t_normal_y[MAX_OBJ],t_normal_z[MAX_OBJ];
-	float center_x[MAX_OBJ],center_y[MAX_OBJ],center_z[MAX_OBJ];
-	bool reflective[MAX_OBJ],sphere[MAX_OBJ];*/
 	vec3 a[MAX_OBJ];
 	vec3 b[MAX_OBJ];
 	vec3 c[MAX_OBJ];
@@ -22,7 +13,8 @@ public:
 	vec3 velocity[MAX_OBJ];
 	vec3 t_normal[MAX_OBJ];
 	vec3 center[MAX_OBJ];
-	bool reflective[MAX_OBJ],sphere[MAX_OBJ],use_f_shading[MAX_OBJ];
+	material mat[MAX_OBJ];
+	bool sphere[MAX_OBJ],use_f_shading[MAX_OBJ];
 	int sceneSize;
 	void addObject(const object& obj) {
 		a[sceneSize] = obj.a;
@@ -31,7 +23,7 @@ public:
 		d_color[sceneSize] = obj.d_color;
 		t_normal[sceneSize] = obj.t_normal;
 		center[sceneSize] = obj.center;
-		reflective[sceneSize] = obj.reflective;
+		mat[sceneSize] = obj.mat;
 		sphere[sceneSize] = obj.sphere;
 		use_f_shading[sceneSize] = obj.use_f_shading;
 		sceneSize++;
@@ -40,7 +32,6 @@ public:
 		if(!use_f_shading[idx]) return d_color[idx]; else {
 			return chess_shading(p);
 		}
-
 	};
 	__host__ __device__ __forceinline__ bool intersect(const int& idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere[idx])

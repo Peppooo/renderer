@@ -121,3 +121,18 @@ __device__ float randNorm(curandStatePhilox4_32_10_t* state) {
 __device__ vec3 randomVec(curandStatePhilox4_32_10_t* state) {
 	return {randNorm(state),randNorm(state),randNorm(state)};
 }
+
+__device__ void randomList(float* list,const int& size,curandStatePhilox4_32_10_t* state) { // fixed size to 
+	for(int i = 0; i < size; i++) {
+		list[i] = randNorm(state);
+	}
+	return;
+}
+
+__device__ float sum(float* list,const int& size) {
+	float sum = 0;
+	for(int i = 0; i < size; i++) {
+		sum += list[i];
+	}
+	return sum;
+}

@@ -15,27 +15,28 @@ using namespace std;
 
 __device__ uint32_t* d_framebuffer;
 
-
 int main() {
 
 	// scene infos
 	object h_scene[50]; int h_sceneSize = 0; // scene size calculated step by step 
-	vec3 h_lights[] = {{7,7,0},{-7,7,0}}; const int h_lightsSize = sizeof(h_lights) / sizeof(vec3);
+	vec3 h_lights[] = {{0,1.5f,0}}; const int h_lightsSize = sizeof(h_lights) / sizeof(vec3);
 
-	object chess(vec3{0,-1,11},vec3{-3,-1,11},vec3{0,-1,15},vec3{0,0,0},h_scene,h_sceneSize,true,false,true); // triangle shaded with function chess_shading
-	cube(vec3{-5,-2,4},1,3,7,vec3{10,10,50},h_scene,h_sceneSize,true);
-	object sphere_test(
-		vec3{0.723185f , 0.7f , 9.81167f}, // center
-		vec3{1.0f,0.0f,0.0f}, // radius , 0 
-		vec3{0.0f,0.0f,0.0f},
-		vec3{200.0f,0.0f,150.0f},h_scene,h_sceneSize,true,true
-	);
+	
+	//cube({-3,-,-3},5,4,3,{100,100,100},h_scene,h_sceneSize,false,false);
+	
+	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},{0,200,0},h_scene,h_sceneSize,material(diffuse),false);
 
-	cube(vec3{1,-2,5},3,3,3,vec3{10, 200, 10},h_scene,h_sceneSize,true);
+	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},{},h_scene,h_sceneSize,material(glossy ,0.1f),true);
 
-	cube(vec3{-10,-2,-1},20,20,20,vec3{150,150,150},h_scene,h_sceneSize,false,false); // container
 
-	vec3 gravity = {0,-2.0f};// m/s^2
+	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},{200,0,0},h_scene,h_sceneSize,material(glossy,0.7f),false);
+
+	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},{0,200,0},h_scene,h_sceneSize,material(glossy,0.7f),false);
+
+
+	//cube({-2.05,-2.05,-2},4.1,4,4,{150,150,150},h_scene,h_sceneSize,false,false);
+
+	//sphere({0,-1,0.8f},0.5f,{0,0,0},h_scene,h_sceneSize,material(specular),false);
 
 	uint32_t* framebuffer = nullptr;
 
@@ -135,15 +136,15 @@ int main() {
 				}
 			}
 		}
-
-
+		
 		
 		int _pitch;
 		SDL_LockTexture(texture,nullptr,(void**)&framebuffer,&_pitch);
-
+		
 		dim3 block(8,8);
 		dim3 grid((w + block.x - 1) / block.x,(h + block.y - 1) / block.y);
-		render_pixel << <grid,block >> > (d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections);
+
+		render_pixel<<<grid,block>>>(d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,32);
 
 		cudaError_t err = cudaGetLastError();
 		if(err != cudaSuccess) {
@@ -152,7 +153,6 @@ int main() {
 		cudaDeviceSynchronize();
 
 		cudaMemcpy(framebuffer,d_framebuffer,sizeof(uint32_t)*w*h,cudaMemcpyDeviceToHost);
-
 
 		SDL_UnlockTexture(texture);
 		SDL_RenderClear(renderer);
