@@ -1,9 +1,6 @@
 ﻿#define SDL_MAIN_HANDLED
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include <cuda_gl_interop.h>
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <chrono>
@@ -16,27 +13,25 @@ using namespace std;
 __device__ uint32_t* d_framebuffer;
 
 int main() {
-
 	// scene infos
 	object h_scene[50]; int h_sceneSize = 0; // scene size calculated step by step 
 	vec3 h_lights[] = {{0,1.5f,0}}; const int h_lightsSize = sizeof(h_lights) / sizeof(vec3);
 
-	
-	//cube({-3,-,-3},5,4,3,{100,100,100},h_scene,h_sceneSize,false,false);
-	
-	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},{0,200,0},h_scene,h_sceneSize,material(diffuse),false);
-
-	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},{},h_scene,h_sceneSize,material(glossy ,0.1f),true);
 
 
-	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},{200,0,0},h_scene,h_sceneSize,material(glossy,0.7f),false);
+	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},{200,200,200},h_scene,h_sceneSize,material(glossy,0.7f),true);
 
-	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},{0,200,0},h_scene,h_sceneSize,material(glossy,0.7f),false);
+	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},{200,200,200},h_scene,h_sceneSize,material(diffuse));
+
+	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},{200,0,0},h_scene,h_sceneSize,material(glossy,0.7f));
+
+	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},{0,200,0},h_scene,h_sceneSize,material(glossy,0.7f));
+
+	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},{200,200,200},h_scene,h_sceneSize,material(diffuse));
 
 
-	//cube({-2.05,-2.05,-2},4.1,4,4,{150,150,150},h_scene,h_sceneSize,false,false);
 
-	//sphere({0,-1,0.8f},0.5f,{0,0,0},h_scene,h_sceneSize,material(specular),false);
+	//sphere({0,-1,0.8f},0.5f,{255,255,255},h_scene,h_sceneSize,material(diffuse),false);
 
 	uint32_t* framebuffer = nullptr;
 
@@ -50,7 +45,6 @@ int main() {
 		SoA_h_scene.addObject(h_scene[i]);
 	}
 
-	cudaMemcpyToSymbol(scene,&SoA_h_scene,sizeof(SoA_h_scene),0,cudaMemcpyHostToDevice);
 
 	cudaMemcpyToSymbol(lightsSize,&h_lightsSize,sizeof(int),0,cudaMemcpyHostToDevice);
 
@@ -85,7 +79,14 @@ int main() {
 		if(nframe % 10 == 0) {
 			cout << "frame time: " << sum_time/ 10 << " ms" << endl; // average frame time out of 10
 			sum_time = 0;
+			/*if(SoA_h_scene.mat[0].shininess < 0.9f) {
+				SoA_h_scene.mat[0].shininess += 0.025f;
+				SoA_h_scene.mat[1].shininess += 0.025f;
+				printf("new glossiness: %f",SoA_h_scene.mat[0].shininess);
+			}*/
 		}
+
+		cudaMemcpyToSymbol(scene,&SoA_h_scene,sizeof(SoA_h_scene),0,cudaMemcpyHostToDevice);
 
 		auto rot = rotation(0,pitch,yaw);
 		while(SDL_PollEvent(&e)) {
@@ -144,7 +145,7 @@ int main() {
 		dim3 block(8,8);
 		dim3 grid((w + block.x - 1) / block.x,(h + block.y - 1) / block.y);
 
-		render_pixel<<<grid,block>>>(d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,32);
+		render_pixel<<<grid,block>>>(d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,64);
 
 		cudaError_t err = cudaGetLastError();
 		if(err != cudaSuccess) {

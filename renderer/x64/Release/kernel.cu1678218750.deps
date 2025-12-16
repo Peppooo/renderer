@@ -144,7 +144,6 @@ C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\crt\sm_70_rt.h
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\crt\sm_80_rt.h
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\crt\sm_90_rt.h
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\cuda_device_runtime_api.h
-C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\cuda_gl_interop.h
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\cuda_runtime.h
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\cuda_runtime_api.h
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\curand.h
@@ -194,10 +193,6 @@ C:\Users\pietr\source\repos\renderer\renderer\physics.cuh
 C:\Users\pietr\source\repos\renderer\renderer\renderer.cuh
 C:\Users\pietr\source\repos\renderer\renderer\scene.cuh
 C:\Users\pietr\source\repos\renderer\renderer\settings.cuh
-C:\Users\pietr\vcpkg\installed\x64-windows\include\GLFW\glfw3.h
-C:\Users\pietr\vcpkg\installed\x64-windows\include\GL\gl.h
-C:\Users\pietr\vcpkg\installed\x64-windows\include\GL\glew.h
-C:\Users\pietr\vcpkg\installed\x64-windows\include\GL\glu.h
 C:\Users\pietr\vcpkg\installed\x64-windows\include\SDL2\begin_code.h
 C:\Users\pietr\vcpkg\installed\x64-windows\include\SDL2\close_code.h
 C:\Users\pietr\vcpkg\installed\x64-windows\include\SDL2\SDL.h

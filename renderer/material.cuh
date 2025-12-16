@@ -6,34 +6,76 @@ enum material_type {
 	glossy
 };
 
+__device__ vec3 randomVecInHemisphere(const vec3& n,curandStatePhilox4_32_10_t* state) {
+	vec3 v;
+	while(true) {
+		v = randomVec(state) * 2 - vec3{1,1,1};
+		if(dot(v,n) > 0) return v;
+	}
+}
+
 class material {
 public:
 	material_type type;
-	float glossiness;
+	float shininess;
 	material() {};
-	material(material_type Type,float Glossiness = 0): type(Type),glossiness(Glossiness) {};
-	__device__ __forceinline__ vec3 bounce(const vec3& D,const vec3& n,curandStatePhilox4_32_10_t* state) {
+	material(material_type Type,float Shininess = 0): type(Type),shininess(Shininess) {};
+	__device__ __forceinline__ vec3 bounce(const vec3& D,vec3 n,curandStatePhilox4_32_10_t* state) {
 		if(type == specular) {
 			return D-n*2*dot(D,n);
 		}
 		else if(type == glossy) {
-			vec3 specular_dir = D - n * 2 * dot(D,n);
-
-			float weights[5];
-			randomList(weights,5,state);
-			weights[4] *= 4; // account for all the 4 vectors im going to sum up
-			float _sum = sum(weights,5);
-
-			vec3 lat1 = {-specular_dir.y,specular_dir.x,0};
-			vec3 lat2 = cross(specular_dir,lat1);
-
-			lat1 = (lat1 * glossiness + specular_dir * (1 - glossiness));
-			lat2 = (lat2 * glossiness + specular_dir * (1 - glossiness));
-			vec3 lat3 = ((-lat1) * glossiness + specular_dir * (1 - glossiness));
-			vec3 lat4 = ((-lat2) * glossiness + specular_dir * (1 - glossiness));
-
+			if(dot(D,n) > 0) n = -n;
+			vec3 specular = (D - n * 2 * dot(D,n)).norm();
 			
-			return ((lat1.norm() * weights[0] + lat2.norm()*weights[1]+lat3.norm()*weights[2]+lat4.norm()*weights[3]+specular_dir.norm()*weights[4]) / _sum);
+			vec3 lat1 = {-specular.y,specular.x,0}; // computes the two perpendiculars to specular 
+			vec3 lat2 = cross(specular,lat1);
+
+			lat1 = (lat1 * shininess + specular * (1 - shininess)).norm();
+			lat2 = (lat2 * shininess + specular * (1 - shininess)).norm();
+
+			vec3 lat3 = ((-lat1) * shininess + specular * (1 - shininess)).norm();
+			vec3 lat4 = ((-lat2) * shininess + specular * (1 - shininess)).norm();
+
+			recompute:
+			float weights[4];
+			randomList(weights,4,state);
+			float _sum = sum(weights,4);
+			
+			vec3 result = ((lat1 * weights[0]+lat2*weights[1]+lat3*weights[2]+lat4*weights[3]) / _sum);
+			if(dot(result,n) < 0) {
+				goto recompute;
+			}
+			return result;
+
+			//return randomVecInHemisphere(specular_dir,state);
+
+			/*vec3 r = D - n * 2 * dot(D,n);
+
+			float u1 = randNorm(state);
+			float u2 = randNorm(state);
+
+			float cosTheta = pow(u1,1.0 / (shininess + 1.0));
+			float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+			float phi = 2.0 * M_PI * u2;
+
+			vec3 localDir = vec3{
+				cos(phi) * sinTheta,
+				sin(phi) * sinTheta,
+				cosTheta
+			};
+
+			// build basis around r
+			vec3 t = {-r.y,r.x,0};
+			t = t.norm();
+			vec3 b = cross(r,t);
+
+			vec3 res = {
+				t* localDir.x +
+				b*localDir.y +
+				r*localDir.z
+			};
+			return res;*/
 		}
 	}
 };

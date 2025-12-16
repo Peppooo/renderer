@@ -167,6 +167,7 @@ __device__ __forceinline__ vec3 compute_ray(vec3 O,vec3 D,curandStatePhilox4_32_
 }
 
 __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float focal_length,bool move_light,int current_light_index,int ssaa,int reflections,int n_samples) {
+
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
 	curandStatePhilox4_32_10_t state;
@@ -178,11 +179,10 @@ __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float fo
 	int jC = -(y - h / 2);
 	int ssaa_samples_count = 0;
 	vec3 ssaa_sum_sample = {0,0,0};
-	vec3 pixel = {0,0,0};
 	float steps_l = rsqrtf(ssaa);
 	for(float i = (iC); i < (iC + 1); i += steps_l) {
 		for(float j = (jC); j < (jC + 1); j += steps_l) {
-
+			vec3 pixel = {0,0,0};
 			for(int z = 0; z < n_samples; z++) {
 				vec3 current_sample = {0,0,0};
 
@@ -208,7 +208,6 @@ __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float fo
 
 		}
 	}
-
 
 	data[idx] = (ssaa_sum_sample / ssaa_samples_count).argb();
 }

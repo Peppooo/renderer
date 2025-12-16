@@ -114,7 +114,7 @@ matrix rotation(const float& yaw,const float& pitch,const float& roll)
 
 
 __device__ float randNorm(curandStatePhilox4_32_10_t* state) {
-	return curand_normal_double(state);
+	return curand_uniform_double(state);
 }
 
 
@@ -135,4 +135,8 @@ __device__ float sum(float* list,const int& size) {
 		sum += list[i];
 	}
 	return sum;
+}
+
+__device__ float clamp(const float& x,const float& min,const float& max) {
+	return (((x) <= (min)) ? (min) : (((x) >= (max)) ? (max) : (x)));
 }
