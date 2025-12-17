@@ -1,6 +1,6 @@
 #pragma once
 #include "algebra.cuh"
-#include "objects.cuh"
+#include "texture.cuh"
 
 #define MAX_OBJ 100
 
@@ -9,29 +9,30 @@ public:
 	vec3 a[MAX_OBJ];
 	vec3 b[MAX_OBJ];
 	vec3 c[MAX_OBJ];
-	vec3 d_color[MAX_OBJ];
+	texture tex[MAX_OBJ];
 	vec3 velocity[MAX_OBJ];
 	vec3 t_normal[MAX_OBJ];
 	vec3 center[MAX_OBJ];
 	material mat[MAX_OBJ];
-	bool sphere[MAX_OBJ],use_f_shading[MAX_OBJ];
+	bool sphere[MAX_OBJ],use_tex[MAX_OBJ];
 	int sceneSize;
 	void addObject(const object& obj) {
 		a[sceneSize] = obj.a;
 		b[sceneSize] = obj.b;
 		c[sceneSize] = obj.c;
-		d_color[sceneSize] = obj.d_color;
+		tex[sceneSize] = obj.tex;
 		t_normal[sceneSize] = obj.t_normal;
 		center[sceneSize] = obj.center;
 		mat[sceneSize] = obj.mat;
 		sphere[sceneSize] = obj.sphere;
-		use_f_shading[sceneSize] = obj.use_f_shading;
 		sceneSize++;
 	}
-	__device__ __forceinline__ vec3 color(const int& idx,const vec3& p) const {
-		if(!use_f_shading[idx]) return d_color[idx]; else {
-			return chess_shading(p);
-		}
+	__device__ __forceinline__ vec3 color(const int& idx,const vec3& p,const vec3& N) const {
+		vec3 X_vec = any_perpendicular(N);
+		vec3 Y_vec = cross(X_vec,N);
+		float X = abs(dot(X_vec,p));
+		float Y = abs(dot(Y_vec,p));
+		return tex[idx].at(X,Y);
 	};
 	__host__ __device__ __forceinline__ bool intersect(const int& idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere[idx])

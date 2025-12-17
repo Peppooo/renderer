@@ -91,6 +91,7 @@
     <ClInclude Include="scene.cuh" />
     <ClInclude Include="settings.cuh" />
     <ClInclude Include="algebra.cuh" />
+    <ClInclude Include="texture.cuh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

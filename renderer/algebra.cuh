@@ -140,3 +140,7 @@ __device__ float sum(float* list,const int& size) {
 __device__ float clamp(const float& x,const float& min,const float& max) {
 	return (((x) <= (min)) ? (min) : (((x) >= (max)) ? (max) : (x)));
 }
+
+__device__ vec3 any_perpendicular(const vec3& v) {
+	return abs(v.x) > abs(v.z) ? vec3{-v.y, v.x, 0} : vec3{0, -v.z, v.y};
+}

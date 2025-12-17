@@ -15,38 +15,52 @@ __device__ uint32_t* d_framebuffer;
 int main() {
 	// scene infos
 	object h_scene[50]; int h_sceneSize = 0; // scene size calculated step by step 
-	vec3 h_lights[] = {{0,1.5f,0}}; const int h_lightsSize = sizeof(h_lights) / sizeof(vec3);
+	vec3 h_lights[1] = {{0,1.5f,0}}; int h_lightsSize = 1;
+
+	texture ibra(true);
+	ibra.fromImage("C:\\Users\\pietr\\Desktop\\test.tex",3,3);
+	
+	plane({0,0,0},{1,0,0},{1,0,1},{0,0,1},h_scene,h_sceneSize,material(diffuse),ibra);
+
+	plane({1,1,1},{0,1,1},{1,0,1},{0,0,1},h_scene,h_sceneSize,material(glossy),texture(false,{200,200,200}));
 
 
+	/*
+	plane({-3,-2,-3},{3,-2,-3},{3,-2,3},{-3,-2,3},{200,200,200},h_scene,h_sceneSize,material(diffuse),true);
 
-	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},{200,200,200},h_scene,h_sceneSize,material(glossy,0.7f),true);
+	plane({-3,2,-3},{3,2,-3},{3,2,3},{-3,2,3},{200,200,200},h_scene,h_sceneSize,material(diffuse));
 
-	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},{200,200,200},h_scene,h_sceneSize,material(diffuse));
+	plane({-3,-2,-3},{-3,2,-3},{-3,-2,3},{-3,2,3},{200,0,0},h_scene,h_sceneSize,material(glossy,0.6f));
 
-	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},{200,0,0},h_scene,h_sceneSize,material(glossy,0.7f));
+	plane({3,-2,-3},{3,2,-3},{3,-2,3},{3,2,3},{0,200,0},h_scene,h_sceneSize,material(glossy,0.6f));
 
-	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},{0,200,0},h_scene,h_sceneSize,material(glossy,0.7f));
+	plane({3,2,3},{-3,2,3},{3,-2,3},{-3,-2,3},{200,200,200},h_scene,h_sceneSize,material(glossy,0.6f));
 
-	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},{200,200,200},h_scene,h_sceneSize,material(diffuse));
+	cube({-3,-2,1.5},3,4,1.5,{200,200,200},h_scene,h_sceneSize,material(diffuse));
 
+	*/
 
-
-	//sphere({0,-1,0.8f},0.5f,{255,255,255},h_scene,h_sceneSize,material(diffuse),false);
+	// light
+	/*	plane({-0.3,2,-0.3},{-0.3,2,0.3},{-0.3,2 - 0.1,-0.3},{-0.3,2 - 0.1,0.3},{200,200,200},h_scene,h_sceneSize,material(diffuse));
+		plane({0.3,2,-0.3},{0.3,2,0.3},{0.3,2 - 0.1,-0.3},{0.3,2 - 0.1,0.3},{200,200,200},h_scene,h_sceneSize,material(diffuse));
+		plane({-0.3,2,-0.3},{0.3,2,-0.3},{-0.3,2 - 0.1,-0.3},{0.3,2 - 0.1,-0.3},{200,200,200},h_scene,h_sceneSize,material(diffuse));
+		plane({-0.3,2,0.3},{0.3,2,0.3},{-0.3,2 - 0.1,0.3},{0.3,2 - 0.1,0.3},{200,200,200},h_scene,h_sceneSize,material(diffuse));
+	*/
 
 	uint32_t* framebuffer = nullptr;
-
+	
 	cudaMalloc(&d_framebuffer,sizeof(uint32_t) * w * h);
 
 	cudaMemcpyToSymbol(lights,h_lights,h_lightsSize * sizeof(vec3),0,cudaMemcpyHostToDevice);
-
+	cudaMemcpyToSymbol(lightsSize,&h_lightsSize,sizeof(int),0,cudaMemcpyHostToDevice);
+	
 	Scene SoA_h_scene;
 	SoA_h_scene.sceneSize = 0;
 	for(int i = 0; i < h_sceneSize; i++) { // convert host scene (AoS) to device scene (SoA)
 		SoA_h_scene.addObject(h_scene[i]);
 	}
 
-
-	cudaMemcpyToSymbol(lightsSize,&h_lightsSize,sizeof(int),0,cudaMemcpyHostToDevice);
+	cudaMemcpyToSymbol(scene,&SoA_h_scene,sizeof(SoA_h_scene),0,cudaMemcpyHostToDevice);
 
 	SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -75,18 +89,10 @@ int main() {
 		lastTime = currentTime;
 		sum_time += deltaTime.count() * 1000;
 
-
-		if(nframe % 10 == 0) {
-			cout << "frame time: " << sum_time/ 10 << " ms" << endl; // average frame time out of 10
+		if(nframe % 3 == 0) {
+			cout << "frame time: " << sum_time/ 3 << " ms" << endl; // average frame time out of 10
 			sum_time = 0;
-			/*if(SoA_h_scene.mat[0].shininess < 0.9f) {
-				SoA_h_scene.mat[0].shininess += 0.025f;
-				SoA_h_scene.mat[1].shininess += 0.025f;
-				printf("new glossiness: %f",SoA_h_scene.mat[0].shininess);
-			}*/
 		}
-
-		cudaMemcpyToSymbol(scene,&SoA_h_scene,sizeof(SoA_h_scene),0,cudaMemcpyHostToDevice);
 
 		auto rot = rotation(0,pitch,yaw);
 		while(SDL_PollEvent(&e)) {
@@ -94,8 +100,8 @@ int main() {
 				return 0;
 			}
 			if(e.type == SDL_MOUSEMOTION) {
-				yaw -= float(e.motion.xrel) * mouse_sens;
-				pitch -= float(e.motion.yrel) * mouse_sens;
+				yaw   -= e.motion.xrel * mouse_sens;
+				pitch -= e.motion.yrel * mouse_sens;
 			}
 			if(e.type == SDL_KEYDOWN) {
 				vec3 move = {0,0,0};
@@ -145,7 +151,9 @@ int main() {
 		dim3 block(8,8);
 		dim3 grid((w + block.x - 1) / block.x,(h + block.y - 1) / block.y);
 
-		render_pixel<<<grid,block>>>(d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,64);
+		int seed = nframe*2134;
+
+		render_pixel<<<grid,block>>>(d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,8+1024*hq,seed);
 
 		cudaError_t err = cudaGetLastError();
 		if(err != cudaSuccess) {

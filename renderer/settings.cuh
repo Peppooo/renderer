@@ -8,7 +8,7 @@ constexpr float mouse_sens = 0.001f;
 float foc_len = w / (2 * tanf(fov / 2.0f));
 bool hq = false;
 
-vec3 origin = {0.0f,0.0f,-2.0f};
+vec3 origin = {0.5f,0.5f,0.0f};
 bool move_light = false;
 int current_light_index = 0;
 float yaw = 0.0f,pitch = 0.0f,roll = 0.0f;
