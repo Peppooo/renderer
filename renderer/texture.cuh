@@ -13,11 +13,12 @@ private:
 public:
 	texture() {};
 	texture(bool Texture,vec3 Color = {0,0,0}):_texture(Texture),color(Color) {};
-	__host__ void fromImage(const char* filename,const int& Width,const int& Height) {
+	__host__ void fromFile(const char* filename,const int& Width,const int& Height) {
 		width = Width; height = Height;
-		FILE* file = fopen(filename,"r"); // text mode
+		FILE* file = fopen(filename,"r");
+		
 		if(!file) {
-			perror("Error opening file");
+			cout << ("Error opening file");
 		}
 
 		char R,G,B;
@@ -27,7 +28,7 @@ public:
 			matrix[i] = vec3{float(unsigned char(R)),float(unsigned char(G)),float(unsigned char(B))};
 			i++;
 		}
-
+		cout << i << endl;
 		fclose(file);
 
 	}

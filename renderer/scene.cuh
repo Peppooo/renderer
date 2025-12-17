@@ -2,7 +2,7 @@
 #include "algebra.cuh"
 #include "texture.cuh"
 
-#define MAX_OBJ 100
+#define MAX_OBJ 127
 
 struct Scene {
 public:
@@ -32,6 +32,9 @@ public:
 		vec3 Y_vec = cross(X_vec,N);
 		float X = abs(dot(X_vec,p));
 		float Y = abs(dot(Y_vec,p));
+		float TEMP;
+		X = modf(X,&TEMP);
+		Y = modf(Y,&TEMP);
 		return tex[idx].at(X,Y);
 	};
 	__host__ __device__ __forceinline__ bool intersect(const int& idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {

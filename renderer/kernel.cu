@@ -17,12 +17,14 @@ int main() {
 	object h_scene[50]; int h_sceneSize = 0; // scene size calculated step by step 
 	vec3 h_lights[1] = {{0,1.5f,0}}; int h_lightsSize = 1;
 
-	texture ibra(true);
-	ibra.fromImage("C:\\Users\\pietr\\Desktop\\test.tex",3,3);
+	texture dirt_texture(true);
+	dirt_texture.fromFile("C:\\Users\\pietr\\Desktop\\out.tex",16,16);
 	
-	plane({0,0,0},{1,0,0},{1,0,1},{0,0,1},h_scene,h_sceneSize,material(diffuse),ibra);
+	//plane({0,0,0},{1,0,0},{1,0,1},{0,0,1},h_scene,h_sceneSize,material(diffuse),ibra);
 
-	plane({1,1,1},{0,1,1},{1,0,1},{0,0,1},h_scene,h_sceneSize,material(glossy),texture(false,{200,200,200}));
+
+	//plane({1,1,1},{0,1,1},{1,0,1},{0,0,1},h_scene,h_sceneSize,material(glossy),ibra);
+	cube({0,0,0},5,3,5,h_scene,h_sceneSize,material(diffuse),dirt_texture);
 
 
 	/*
