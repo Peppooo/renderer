@@ -1,7 +1,8 @@
 from PIL import Image
 
 # Load the image
-img = Image.open(input("nome file: "))
+name=input("nome file: ")
+img = Image.open(name)
 
 # Convert image to RGB (optional, ensures 3 channels)
 img = img.convert("RGB")
@@ -24,6 +25,8 @@ for y in range(height):
 data = bytes(data)
 
 
+
 # Save to a binary file
-with open("out.tex", "wb") as f:
+
+with open(name.split(".")[0]+".tex", "wb") as f:
     f.write(data)

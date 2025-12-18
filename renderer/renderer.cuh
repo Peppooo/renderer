@@ -34,8 +34,8 @@ __device__ __forceinline__ float direct_light(const vec3& p,const vec3& n) { // 
 	vec3 pl,nl;
 	for(int i = 0; i < lightsSize; i++) {
 		vec3 dir_to_light = (lights[i] - p).norm();
-		float scalar = dot(dir_to_light,normalized_n); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
-		if(scalar > max_light_scalar && (castRay(p,dir_to_light,pl,nl) == -1 || (pl - p).len2() >= (p-lights[i]).len2())) {
+		float scalar = abs(dot(dir_to_light,normalized_n)); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
+		if(scalar > max_light_scalar) {
 			max_light_scalar = scalar;
 		}
 	}
@@ -91,9 +91,9 @@ __device__ __forceinline__ vec3 compute_ray(vec3 O,vec3 D,curandStatePhilox4_32_
 		int objIdx = castRay(O,D,p,surf_norm);
 		if(objIdx != -1) {
 			float scalar = direct_light(p,surf_norm);
-			/*if(scalar <= 0.99 && d_hq) {
-				scalar = max(scalar,indirect_light(p,surf_norm,rlRays,state));
-			}*/
+			//if(scalar <= 0.99 && d_hq) {
+			//	scalar = max(scalar,indirect_light(p,surf_norm,rlRays,state));
+			//}
 
 			if(scalar>epsilon) { // if the surface before isnt lit then dont add anything
 				needs_sampling = needs_sampling || scene.mat[objIdx].needs_sampling();
@@ -123,7 +123,6 @@ __device__ __forceinline__ vec3 compute_ray(vec3 O,vec3 D,curandStatePhilox4_32_
 }
 
 __global__ void render_pixel(uint32_t* data,vec3 origin,matrix rotation,float focal_length,bool move_light,int current_light_index,int ssaa,int reflections,int n_samples,int seed) {
-
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
 	int idx = (x + y * w);

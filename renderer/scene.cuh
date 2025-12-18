@@ -9,7 +9,7 @@ public:
 	vec3 a[MAX_OBJ];
 	vec3 b[MAX_OBJ];
 	vec3 c[MAX_OBJ];
-	texture tex[MAX_OBJ];
+	texture* tex[MAX_OBJ];
 	vec3 velocity[MAX_OBJ];
 	vec3 t_normal[MAX_OBJ];
 	vec3 center[MAX_OBJ];
@@ -28,14 +28,14 @@ public:
 		sceneSize++;
 	}
 	__device__ __forceinline__ vec3 color(const int& idx,const vec3& p,const vec3& N) const {
-		vec3 X_vec = any_perpendicular(N);
-		vec3 Y_vec = cross(X_vec,N);
+		vec3 Y_vec = any_perpendicular(N);
+		vec3 X_vec = cross(Y_vec,N);
 		float X = abs(dot(X_vec,p));
 		float Y = abs(dot(Y_vec,p));
 		float TEMP;
 		X = modf(X,&TEMP);
 		Y = modf(Y,&TEMP);
-		return tex[idx].at(X,Y);
+		return tex[idx]->at(X,Y);
 	};
 	__host__ __device__ __forceinline__ bool intersect(const int& idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere[idx])
