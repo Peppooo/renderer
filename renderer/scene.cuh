@@ -1,10 +1,9 @@
 #pragma once
-#include "algebra.cuh"
-#include "texture.cuh"
+#include "objects.cuh"
 
-#define MAX_OBJ 127
+#define MAX_OBJ 50000
 
-struct Scene {
+class Scene {
 public:
 	vec3 a[MAX_OBJ];
 	vec3 b[MAX_OBJ];
@@ -30,14 +29,14 @@ public:
 	__device__ __forceinline__ vec3 color(const int& idx,const vec3& p,const vec3& N) const {
 		vec3 Y_vec = any_perpendicular(N);
 		vec3 X_vec = cross(Y_vec,N);
-		float X = abs(dot(X_vec,p));
-		float Y = abs(dot(Y_vec,p));
+		float X = fabs(dot(X_vec,p));
+		float Y = fabs(dot(Y_vec,p));
 		float TEMP;
-		X = modf(X,&TEMP);
-		Y = modf(Y,&TEMP);
+		X = modff(X,&TEMP);
+		Y = modff(Y,&TEMP);
 		return tex[idx]->at(X,Y);
 	};
-	__host__ __device__ __forceinline__ bool intersect(const int& idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
+	__device__ __forceinline__ bool intersect(const int& idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere[idx])
 		{
 			vec3 v0 = c[idx] - a[idx];

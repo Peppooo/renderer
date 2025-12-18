@@ -4,7 +4,6 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <chrono>
-
 #include "renderer.cuh"
 #include "physics.cuh"
 
@@ -12,84 +11,40 @@ using namespace std;
 
 __device__ uint32_t* d_framebuffer;
 
-namespace device {
-	__device__ texture* dirt_texture;
-	__device__ texture* grass_top_texture;
-	__device__ texture* grass_side_texture;
-
-	__device__ texture* white_texture;
-}
-
 const vec3 gravity = {0,-1,0};
+
+#define IMPORT_TEXTURE(name,dev_name,filename) texture name(true);name.fromFile(filename,16,16);texture* dev_name;cudaMalloc(&dev_name,sizeof(texture));cudaMemcpy(dev_name,&name,sizeof(texture),cudaMemcpyHostToDevice);;
 
 int main() {
 	// scene infos
-	object h_scene[50]; int h_sceneSize = 0; // scene size calculated step by step 
+	object* h_scene = new object[MAX_OBJ]; int h_sceneSize = 0; // scene size calculated step by step 
 	vec3 h_lights[1] = {{5,4,5}}; int h_lightsSize = 1;
 
-	texture dirt_texture(true);
-	dirt_texture.fromFile("..\\dirt.tex",16,16);
-	texture grass_top(true);
-	grass_top.fromFile("..\\grass_block_top.tex",16,16);
-	texture grass_side(true);
-	grass_side.fromFile("..\\grass_block_side.tex",16,16);
+	texture _white_texture(false,{200,200,200});
+	texture* white_texture; cudaMalloc(&white_texture,sizeof(texture)); cudaMemcpy(white_texture,&_white_texture,sizeof(texture),cudaMemcpyHostToDevice);
 
-	texture white_texture(false,{200,200,200});
+	IMPORT_TEXTURE(stone,d_stone_tex,"..\\textures\\stone.tex");
+	IMPORT_TEXTURE(sand,d_sand_tex,"..\\textures\\sand.tex");
+	IMPORT_TEXTURE(dirt,d_dirt_tex,"..\\textures\\dirt.tex");
 
-	
-	cudaMalloc(&device::dirt_texture,sizeof(texture));
-	cudaMemcpy(device::dirt_texture,&dirt_texture,sizeof(texture),cudaMemcpyHostToDevice);
-
-	cudaMalloc(&device::grass_top_texture,sizeof(texture));
-	cudaMemcpy(device::grass_top_texture,&grass_top,sizeof(texture),cudaMemcpyHostToDevice);
-
-	cudaMalloc(&device::grass_side_texture,sizeof(texture));
-	cudaMemcpy(device::grass_side_texture,&grass_side,sizeof(texture),cudaMemcpyHostToDevice);
-
-	cudaMalloc(&device::white_texture,sizeof(texture));
-	cudaMemcpy(device::white_texture,&white_texture,sizeof(texture),cudaMemcpyHostToDevice);
+	cout << "namo" << endl;
 
 	int cam_idx = h_sceneSize;
-	sphere({2,2,2},0.5f,h_scene,h_sceneSize,material(specular),device::white_texture);
+	sphere({2,2,2},0.5f,h_scene,h_sceneSize,material(diffuse),white_texture);
 
-	cube dirt_block_1({0,-2,0},{1,1,1},h_scene,h_sceneSize,material(diffuse),device::grass_side_texture);
+	cube stone_block({0,-2,0},{1,1,1},h_scene,h_sceneSize,material(diffuse),d_stone_tex);
 
-	plane({-50,-2,-50},{50,-2,-50},{50,-2,50},{-50,-2,50},h_scene,h_sceneSize,material(diffuse),device::grass_top_texture);
+	cube sand_block({1,-2,0},{1,1,1},h_scene,h_sceneSize,material(diffuse),d_sand_tex);
 
-	dirt_block_1.at(h_scene,top,0).tex = device::grass_top_texture;
-	dirt_block_1.at(h_scene,top,1).tex = device::grass_top_texture;
+	cube dirt_block({-1,-2,0},{1,1,1},h_scene,h_sceneSize,material(diffuse),d_dirt_tex);
 
-	dirt_block_1.at(h_scene,bottom,0).tex = device::dirt_texture;
-	dirt_block_1.at(h_scene,bottom,1).tex = device::dirt_texture;
+	for(int i = 1; i < 100; i++) {
+		cube::cube({float(i),-2,0},{1,1,1},h_scene,h_sceneSize,material(diffuse),d_sand_tex);
+		//object({1 + float(i),-1,float(k)},{1 + float(i),-1,float(k) + 1},{1 + float(i) + 1,-1,float(k)},h_scene,h_sceneSize,material(diffuse),white_texture);
+	}
 
-	//plane({0,0,0},{1,0,0},{1,0,1},{0,0,1},h_scene,h_sceneSize,material(diffuse),ibra);
-
-	//plane({1,1,1},{0,1,1},{1,0,1},{0,0,1},h_scene,h_sceneSize,material(diffuse),device::simple_white_texture);
-	//cube({0,0,0},5,3,5,h_scene,h_sceneSize,material(diffuse),device::dirt_texture);
 	
-
-
-	/*
-	plane({-3,-2,-3},{3,-2,-3},{3,-2,3},{-3,-2,3},{200,200,200},h_scene,h_sceneSize,material(diffuse),true);
-
-	plane({-3,2,-3},{3,2,-3},{3,2,3},{-3,2,3},{200,200,200},h_scene,h_sceneSize,material(diffuse));
-
-	plane({-3,-2,-3},{-3,2,-3},{-3,-2,3},{-3,2,3},{200,0,0},h_scene,h_sceneSize,material(glossy,0.6f));
-
-	plane({3,-2,-3},{3,2,-3},{3,-2,3},{3,2,3},{0,200,0},h_scene,h_sceneSize,material(glossy,0.6f));
-
-	plane({3,2,3},{-3,2,3},{3,-2,3},{-3,-2,3},{200,200,200},h_scene,h_sceneSize,material(glossy,0.6f));
-
-	cube({-3,-2,1.5},3,4,1.5,{200,200,200},h_scene,h_sceneSize,material(diffuse));
-
-	*/
-
-	// light
-	/*	plane({-0.3,2,-0.3},{-0.3,2,0.3},{-0.3,2 - 0.1,-0.3},{-0.3,2 - 0.1,0.3},{200,200,200},h_scene,h_sceneSize,material(diffuse));
-		plane({0.3,2,-0.3},{0.3,2,0.3},{0.3,2 - 0.1,-0.3},{0.3,2 - 0.1,0.3},{200,200,200},h_scene,h_sceneSize,material(diffuse));
-		plane({-0.3,2,-0.3},{0.3,2,-0.3},{-0.3,2 - 0.1,-0.3},{0.3,2 - 0.1,-0.3},{200,200,200},h_scene,h_sceneSize,material(diffuse));
-		plane({-0.3,2,0.3},{0.3,2,0.3},{-0.3,2 - 0.1,0.3},{0.3,2 - 0.1,0.3},{200,200,200},h_scene,h_sceneSize,material(diffuse));
-	*/
+	//plane({-50,-2,-50},{50,-2,-50},{50,-2,50},{-50,-2,50},h_scene,h_sceneSize,material(diffuse),d_stone_tex);
 
 	uint32_t* framebuffer = nullptr;
 	
@@ -98,7 +53,7 @@ int main() {
 	cudaMemcpyToSymbol(lights,h_lights,h_lightsSize * sizeof(vec3),0,cudaMemcpyHostToDevice);
 	cudaMemcpyToSymbol(lightsSize,&h_lightsSize,sizeof(int),0,cudaMemcpyHostToDevice);
 	
-	Scene SoA_h_scene;
+	Scene* SoA_h_scene = new Scene();
 
 	SDL_Init(SDL_INIT_EVERYTHING);
 	int numKeys;
@@ -122,6 +77,14 @@ int main() {
 
 	float sum_time = 0;
 
+	Scene* scene;
+	cudaMallocManaged(&scene,sizeof(Scene));
+
+	SoA_h_scene->sceneSize = 0;
+	for(int i = 0; i < h_sceneSize; i++) { // convert host scene (AoS) to device scene (SoA)
+		SoA_h_scene->addObject(h_scene[i]);
+	}
+	cudaMemcpy(scene,SoA_h_scene,sizeof(Scene),cudaMemcpyHostToDevice);
 	
 	while(1) {
 		nframe++;
@@ -138,11 +101,17 @@ int main() {
 
 		auto rot = rotation(0,pitch,yaw);
 		while(SDL_PollEvent(&e)) {
-			if(e.type == SDL_KEYDOWN && keystates[SDL_SCANCODE_L]) {
-				move_light = !move_light;
-				if(move_light) {
-					current_light_index++;
-					current_light_index = cycle(current_light_index,h_lightsSize);
+			if(e.type == SDL_KEYDOWN) {
+				if(keystates[SDL_SCANCODE_L]) {
+					move_light = !move_light;
+					if(move_light) {
+						current_light_index++;
+						current_light_index = cycle(current_light_index,h_lightsSize);
+					}
+				}
+				if(keystates[SDL_SCANCODE_H]) {
+					hq = !hq;
+					cudaMemcpyToSymbol(d_hq,&hq,sizeof(bool),0,cudaMemcpyHostToDevice);
 				}
 			}
 			if(e.type == SDL_QUIT) {
@@ -154,9 +123,7 @@ int main() {
 			}
 		}
 
-		handlePhysics(h_scene,h_sceneSize);
 
-		cudaMemcpyToSymbol(scene,&SoA_h_scene,sizeof(SoA_h_scene),0,cudaMemcpyHostToDevice);
 
 		vec3 move = {0,0,0};
 		float curr_move_speed = move_speed;
@@ -178,28 +145,28 @@ int main() {
 		if(keystates[SDL_SCANCODE_E]) {
 			move.y += 1;
 		}
-		if(keystates[SDL_SCANCODE_H]) {
-			hq = !hq;
-			cudaMemcpyToSymbol(d_hq,&hq,sizeof(bool),0,cudaMemcpyHostToDevice);
-		}
-		if(keystates[SDL_SCANCODE_LCTRL]) {
+		if(keystates[SDL_SCANCODE_LSHIFT]) {
 			curr_move_speed *= 8;
 		}
 		if(move.len2() != 0) {
 			if(!move_light) {
-				h_scene[cam_idx].a += rotation(0,0,yaw) * move.norm() * curr_move_speed * dt;
+				origin += rotation(0,0,yaw) * move.norm() * curr_move_speed * dt;
 			}
 			else {
 				h_lights[current_light_index] = h_lights[current_light_index] + move.norm() * move_speed * dt;
 				cudaMemcpyToSymbol(lights,h_lights,h_lightsSize * sizeof(vec3),0,cudaMemcpyHostToDevice);
 			}
 		}
-		origin = h_scene[cam_idx].a;
+		/*origin = h_scene[cam_idx].a;
 
-		SoA_h_scene.sceneSize = 0;
+		handlePhysics(h_scene,h_sceneSize);
+
+		SoA_h_scene->sceneSize = 0;
 		for(int i = 0; i < h_sceneSize; i++) { // convert host scene (AoS) to device scene (SoA)
-			SoA_h_scene.addObject(h_scene[i]);
+			SoA_h_scene->addObject(h_scene[i]);
 		}
+
+		cudaMemcpy(scene,SoA_h_scene,sizeof(Scene),cudaMemcpyHostToDevice);*/
 		
 		int _pitch;
 		SDL_LockTexture(texture,nullptr,(void**)&framebuffer,&_pitch);
@@ -209,7 +176,7 @@ int main() {
 
 		int seed = nframe*2134;
 
-		render_pixel<<<grid,block>>>(d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,8+1024*hq,seed);
+		render_pixel<<<grid,block>>>(scene,d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,1+1024*hq,seed);
 
 		cudaError_t err = cudaGetLastError();
 		if(err != cudaSuccess) {

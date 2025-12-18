@@ -144,3 +144,7 @@ __device__ float clamp(const float& x,const float& min,const float& max) {
 __device__ vec3 any_perpendicular(const vec3& v) {
 	return abs(v.x) > abs(v.z) ? vec3{-v.y, v.x, 0} : vec3{0, -v.z, v.y};
 }
+
+__device__ float d_min(const float& a,const float& b) {
+	return a < b ? a : b;
+}

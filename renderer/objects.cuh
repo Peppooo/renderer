@@ -98,6 +98,9 @@ public:
 	object& at(object* scene,faces n,bool k){
 		return scene[sIdx+n * 2 + k];
 	}
+	object& copy_at(vec3 edge) {
+		// TODO
+	}
 };
 
 __host__ void sphere(vec3 center,float radius,object* scene,int& sceneSize,material mat,texture* tex) {
