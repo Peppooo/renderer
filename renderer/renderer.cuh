@@ -33,7 +33,6 @@ __device__ __forceinline__ float direct_light(const Scene* scene,const vec3& p,c
 	float max_light_scalar = 0;
 	vec3 normalized_n = n.len2()==1?n:n.norm();
 	vec3 pl,nl;
-	return 1;
 	for(int i = 0; i < lightsSize; i++) {
 		vec3 dir_to_light = (lights[i] - p).norm();
 		float scalar = (dot(dir_to_light,normalized_n)); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
@@ -141,6 +140,7 @@ __global__ void render_pixel(const Scene* scene,uint32_t* data,vec3 origin,matri
 	float steps_l = rsqrtf(ssaa);
 	for(float i = (iC); i < (iC + 1); i += steps_l) {
 		for(float j = (jC); j < (jC + 1); j += steps_l) {
+			n_samples_count = 0;
 			vec3 pixel = {0,0,0};
 			bool needs_sampling = false;
 			for(int z = 0; z < n_samples; z++) {

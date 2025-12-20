@@ -13,38 +13,28 @@ __device__ uint32_t* d_framebuffer;
 
 const vec3 gravity = {0,-1,0};
 
-#define IMPORT_TEXTURE(name,dev_name,filename) texture name(true);name.fromFile(filename,16,16);texture* dev_name;cudaMalloc(&dev_name,sizeof(texture));cudaMemcpy(dev_name,&name,sizeof(texture),cudaMemcpyHostToDevice);;
 
 int main() {
 	// scene infos
 	object* h_scene = new object[MAX_OBJ]; int h_sceneSize = 0; // scene size calculated step by step 
-	vec3 h_lights[1] = {{5,4,5}}; int h_lightsSize = 1;
+	vec3 h_lights[1] = {{0,1,0}}; int h_lightsSize = 1;
 
-	texture _white_texture(false,{200,200,200});
-	texture* white_texture; cudaMalloc(&white_texture,sizeof(texture)); cudaMemcpy(white_texture,&_white_texture,sizeof(texture),cudaMemcpyHostToDevice);
+	COLOR_TEXTURE(white_texture,(vec3{200,200,200}));
+	COLOR_TEXTURE(green_texture,(vec3{0,200,0}));
+	COLOR_TEXTURE(red_texture,(vec3{200,0,0}));
 
-	IMPORT_TEXTURE(stone,d_stone_tex,"..\\textures\\stone.tex");
-	IMPORT_TEXTURE(sand,d_sand_tex,"..\\textures\\sand.tex");
-	IMPORT_TEXTURE(dirt,d_dirt_tex,"..\\textures\\dirt.tex");
-
-	cout << "namo" << endl;
-
-	int cam_idx = h_sceneSize;
-	sphere({2,2,2},0.5f,h_scene,h_sceneSize,material(diffuse),white_texture);
-
-	cube stone_block({0,-2,0},{1,1,1},h_scene,h_sceneSize,material(diffuse),d_stone_tex);
-
-	cube sand_block({1,-2,0},{1,1,1},h_scene,h_sceneSize,material(diffuse),d_sand_tex);
-
-	cube dirt_block({-1,-2,0},{1,1,1},h_scene,h_sceneSize,material(diffuse),d_dirt_tex);
-
-	for(int i = 1; i < 100; i++) {
-		cube::cube({float(i),-2,0},{1,1,1},h_scene,h_sceneSize,material(diffuse),d_sand_tex);
-		//object({1 + float(i),-1,float(k)},{1 + float(i),-1,float(k) + 1},{1 + float(i) + 1,-1,float(k)},h_scene,h_sceneSize,material(diffuse),white_texture);
-	}
-
+	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor2.tex",1,799,783);
 	
-	//plane({-50,-2,-50},{50,-2,-50},{50,-2,50},{-50,-2,50},h_scene,h_sceneSize,material(diffuse),d_stone_tex);
+	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.65f),floor_texture);
+
+	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),red_texture);
+
+	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(glossy,0.75f),green_texture);
+
+
+	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse),white_texture);
+
+	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.8f),white_texture);
 
 	uint32_t* framebuffer = nullptr;
 	
@@ -93,6 +83,8 @@ int main() {
 		float dt = deltaTime.count();
 		lastTime = currentTime;
 		sum_time += deltaTime.count() * 1000;
+
+		
 
 		if(nframe % 100 == 0) {
 			cout << "frame time: " << sum_time/100 << " ms" << endl; // average frame time out of 10
@@ -157,16 +149,6 @@ int main() {
 				cudaMemcpyToSymbol(lights,h_lights,h_lightsSize * sizeof(vec3),0,cudaMemcpyHostToDevice);
 			}
 		}
-		/*origin = h_scene[cam_idx].a;
-
-		handlePhysics(h_scene,h_sceneSize);
-
-		SoA_h_scene->sceneSize = 0;
-		for(int i = 0; i < h_sceneSize; i++) { // convert host scene (AoS) to device scene (SoA)
-			SoA_h_scene->addObject(h_scene[i]);
-		}
-
-		cudaMemcpy(scene,SoA_h_scene,sizeof(Scene),cudaMemcpyHostToDevice);*/
 		
 		int _pitch;
 		SDL_LockTexture(texture,nullptr,(void**)&framebuffer,&_pitch);
@@ -176,7 +158,7 @@ int main() {
 
 		int seed = nframe*2134;
 
-		render_pixel<<<grid,block>>>(scene,d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,1+1024*hq,seed);
+		render_pixel<<<grid,block>>>(scene,d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,8,seed);
 
 		cudaError_t err = cudaGetLastError();
 		if(err != cudaSuccess) {

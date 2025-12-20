@@ -46,7 +46,7 @@ __host__ void plane(vec3 a,vec3 b,vec3 c,vec3 d,object* scene,int& sceneSize,mat
 	object(points[2],points[1],points[3],scene,sceneSize,mat,tex,false);
 }
 
-/*__host__ void cube(vec3 edge,float lx,float ly,float lz,object* scene,int& sceneSize,material mat,texture* tex) {
+__host__ void cube(vec3 edge,float lx,float ly,float lz,object* scene,int& sceneSize,material mat,texture* tex) {
 	object(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},scene,sceneSize,mat,tex,false);
 	object(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{lx,0,0},scene,sceneSize,mat,tex,false);
 	object(edge,edge + vec3{0,0,lz},edge + vec3{0,ly,0},scene,sceneSize,mat,tex,false);
@@ -61,7 +61,7 @@ __host__ void plane(vec3 a,vec3 b,vec3 c,vec3 d,object* scene,int& sceneSize,mat
 	object(edge + vec3{lx,0,lz},edge + vec3{lx,0,0},edge + vec3{0,0,lz},scene,sceneSize,mat,tex,false);
 	object(edge + vec3{lx,ly,lz},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},scene,sceneSize,mat,tex,false);
 	//a little bit hard coded but i dont care its good (maybe i could have made a box intersection function or do this automatically
-}*/
+}
 
 enum faces {
 	front,
@@ -70,37 +70,6 @@ enum faces {
 	right,
 	top,
 	bottom
-};
-
-class cube {
-public:
-	int sIdx = 0;
-	cube(vec3 edge,vec3 l,object* scene,int& sceneSize,material mat,texture* tex) {
-		sIdx = sceneSize;
-		object(edge,edge + vec3{l.x,0,0},edge + vec3{0,l.y,0},scene,sceneSize,mat,tex,false);
-		object(edge + vec3{0,l.y,0},edge + vec3{l.x,l.y,0},edge + vec3{l.x,0,0},scene,sceneSize,mat,tex,false);      // FRONT
-
-		object(edge + vec3{l.x,0,l.z},edge + vec3{0,0,l.z},edge + vec3{l.x,l.y,l.z},scene,sceneSize,mat,tex,false);
-		object(edge + vec3{l.x,l.y,l.z},edge + vec3{0,l.y,l.z},edge + vec3{0,0,l.z},scene,sceneSize,mat,tex,false);  // BACK
-		
-		object(edge,edge + vec3{0,0,l.z},edge + vec3{0,l.y,0},scene,sceneSize,mat,tex,false); 
-		object(edge + vec3{0,0,l.z},edge + vec3{0,l.y,l.z},edge + vec3{0,l.y,0},scene,sceneSize,mat,tex,false);      // LEFT
-
-		object(edge + vec3{l.x,0,l.z},edge + vec3{l.x,l.y,l.z},edge + vec3{l.x,0,0},scene,sceneSize,mat,tex,false);
-		object(edge + vec3{l.x,0,0},edge + vec3{l.x,l.y,0},edge + vec3{l.x,l.y,l.z},scene,sceneSize,mat,tex,false);  // RIGHT
-
-		object(edge + vec3{0,l.y,0},edge + vec3{l.x,l.y,0},edge + vec3{0,l.y,l.z},scene,sceneSize,mat,tex,false);
-		object(edge + vec3{l.x,l.y,l.z},edge + vec3{l.x,l.y,0},edge + vec3{0,l.y,l.z},scene,sceneSize,mat,tex,false);// TOP 
-
-		object(edge + vec3{l.x ,0,l.z},edge + vec3{l.x,0,0},edge + vec3{0,0,l.z},scene,sceneSize,mat,tex,false);
-		object(edge + vec3{0,0,0},edge + vec3{l.x,0,0},edge + vec3{0,0,l.z},scene,sceneSize,mat,tex,false);          // BOTTOM
-	}
-	object& at(object* scene,faces n,bool k){
-		return scene[sIdx+n * 2 + k];
-	}
-	object& copy_at(vec3 edge) {
-		// TODO
-	}
 };
 
 __host__ void sphere(vec3 center,float radius,object* scene,int& sceneSize,material mat,texture* tex) {

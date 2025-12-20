@@ -14,6 +14,6 @@ int current_light_index = 0;
 float yaw = 0.0f,pitch = 0.0f,roll = 0.0f;
 
 int reflections = 5;
-int ssaa = 1;
+int ssaa = 4;
 
 __constant__ int reflected_rays = 64;

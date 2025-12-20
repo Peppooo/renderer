@@ -27,14 +27,7 @@ public:
 		sceneSize++;
 	}
 	__device__ __forceinline__ vec3 color(const int& idx,const vec3& p,const vec3& N) const {
-		vec3 Y_vec = any_perpendicular(N);
-		vec3 X_vec = cross(Y_vec,N);
-		float X = fabs(dot(X_vec,p));
-		float Y = fabs(dot(Y_vec,p));
-		float TEMP;
-		X = modff(X,&TEMP);
-		Y = modff(Y,&TEMP);
-		return tex[idx]->at(X,Y);
+		return tex[idx]->at(p,N);
 	};
 	__device__ __forceinline__ bool intersect(const int& idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere[idx])
