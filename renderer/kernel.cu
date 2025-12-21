@@ -19,22 +19,23 @@ int main() {
 	object* h_scene = new object[MAX_OBJ]; int h_sceneSize = 0; // scene size calculated step by step 
 	vec3 h_lights[1] = {{0,1,0}}; int h_lightsSize = 1;
 
-	COLOR_TEXTURE(white_texture,(vec3{200,200,200}));
-	COLOR_TEXTURE(green_texture,(vec3{0,200,0}));
-	COLOR_TEXTURE(red_texture,(vec3{200,0,0}));
+	COLOR_TEXTURE(white_texture,(vec3{250,250,250}));
+	COLOR_TEXTURE(green_texture,(vec3{0,250,0}));
+	COLOR_TEXTURE(red_texture,(vec3{250,0,0}));
 
-	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor2.tex",1,799,783);
+	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor.tex",vec2(0,0),vec2(0.5f,0.5f),false,799,783);
 	
-	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.65f),floor_texture);
+	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse),floor_texture);
 
 	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),red_texture);
 
-	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(glossy,0.75f),green_texture);
+	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),green_texture);
 
 
 	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse),white_texture);
 
-	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.8f),white_texture);
+	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.6f),white_texture);
+	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(glossy,0.6f),white_texture);
 
 	uint32_t* framebuffer = nullptr;
 	
@@ -84,10 +85,10 @@ int main() {
 		lastTime = currentTime;
 		sum_time += deltaTime.count() * 1000;
 
-		
+
 
 		if(nframe % 100 == 0) {
-			cout << "frame time: " << sum_time/100 << " ms" << endl; // average frame time out of 10
+			cout << "frame time: " << sum_time / 100 << " ms" << endl; // average frame time out of 10
 			sum_time = 0;
 		}
 
@@ -110,7 +111,7 @@ int main() {
 				return 0;
 			}
 			if(e.type == SDL_MOUSEMOTION) {
-				yaw   -= e.motion.xrel * mouse_sens;
+				yaw -= e.motion.xrel * mouse_sens;
 				pitch -= e.motion.yrel * mouse_sens;
 			}
 		}
@@ -149,16 +150,16 @@ int main() {
 				cudaMemcpyToSymbol(lights,h_lights,h_lightsSize * sizeof(vec3),0,cudaMemcpyHostToDevice);
 			}
 		}
-		
+
 		int _pitch;
 		SDL_LockTexture(texture,nullptr,(void**)&framebuffer,&_pitch);
-		
+
 		dim3 block(8,8);
 		dim3 grid((w + block.x - 1) / block.x,(h + block.y - 1) / block.y);
 
-		int seed = nframe*2134;
+		int seed = nframe * 213245;
 
-		render_pixel<<<grid,block>>>(scene,d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,8,seed);
+		render_pixel << <grid,block >> > (scene,d_framebuffer,origin,rot,foc_len,move_light,current_light_index,ssaa,reflections,1,seed);
 
 		cudaError_t err = cudaGetLastError();
 		if(err != cudaSuccess) {
@@ -166,7 +167,7 @@ int main() {
 		}
 		cudaDeviceSynchronize();
 
-		cudaMemcpy(framebuffer,d_framebuffer,sizeof(uint32_t)*w*h,cudaMemcpyDeviceToHost);
+		cudaMemcpy(framebuffer,d_framebuffer,sizeof(uint32_t) * w * h,cudaMemcpyDeviceToHost);
 
 		SDL_UnlockTexture(texture);
 		SDL_RenderClear(renderer);

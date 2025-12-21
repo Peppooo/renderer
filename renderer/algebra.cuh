@@ -21,6 +21,8 @@ class matrix;
 
 struct vec3 {
 	float x,y,z;
+	__host__ __device__ vec3() {};
+	__host__ __device__ vec3(float X,float Y,float Z): x(X),y(Y),z(Z) {}
 	__host__ __device__ __forceinline__ vec3 operator*(const float& scalar) const {
 		return {x * scalar,y * scalar,z * scalar};
 	}
@@ -64,6 +66,18 @@ struct vec3 {
 	}
 };
 
+struct vec2 {
+public:
+	float x,y;
+	__host__ __device__ vec2(): x(0),y(0) {};
+	__host__ __device__ vec2(const float& X,const float& Y): x(X),y(Y) {}
+	__host__ __device__ vec2 operator*(const float& a) {
+		return vec2(x * a,y * a);
+	}
+	__host__ __device__ vec2 operator+(const vec2& v) {
+		return vec2(x+v.x,y+v.y);
+	}
+};
 
 class matrix {
 public:
@@ -97,17 +111,17 @@ matrix rotation(const float& yaw,const float& pitch,const float& roll)
 	const float cp = cosf(pitch); const float sp = sinf(pitch);
 	const float cr = cosf(roll);  const float sr = sinf(roll);
 
-	matrix Rz = {cy, -sy, 0,
-				  sy,  cy, 0,
-				  0 ,   0, 1};
+	matrix Rz = {vec3(cy, -sy, 0),
+				  vec3(sy,  cy, 0),
+				  vec3(0 ,   0, 1)};
 
-	matrix Rx = {1,   0 ,   0,
-				  0,  cp, -sp,
-				  0,  sp,  cp};
+	matrix Rx = {vec3(1,   0 ,   0),
+				  vec3(0,  cp, -sp),
+				  vec3(0,  sp,  cp)};
 
-	matrix Ry = {cr, 0, sr,
-				  0 , 1, 0,
-				 -sr, 0, cr};
+	matrix Ry = {vec3(cr, 0, sr),
+				  vec3(0 , 1, 0),
+				 vec3(- sr, 0, cr)};
 
 	return Rz * Rx * Ry;
 }

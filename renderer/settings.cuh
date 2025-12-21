@@ -3,7 +3,7 @@
 
 constexpr int w = 1024,h = 1024;
 constexpr float fov = M_PI / 1.6f;
-constexpr float move_speed = 2.0f;
+constexpr float move_speed = 0.5f;
 constexpr float mouse_sens = 0.001f;
 float foc_len = w / (2 * tanf(fov / 2.0f));
 bool hq = false;

@@ -26,8 +26,8 @@ public:
 		sphere[sceneSize] = obj.sphere;
 		sceneSize++;
 	}
-	__device__ __forceinline__ vec3 color(const int& idx,const vec3& p,const vec3& N) const {
-		return tex[idx]->at(p,N);
+	__device__ __forceinline__ vec3 color(const int& idx,const vec3& p,const vec3& N,curandStatePhilox4_32_10_t* state) const {
+		return tex[idx]->at(p,N,state);
 	};
 	__device__ __forceinline__ bool intersect(const int& idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere[idx])

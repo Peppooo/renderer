@@ -100,8 +100,7 @@ __device__ __forceinline__ vec3 compute_ray(const Scene* scene,vec3 O,vec3 D,cur
 			if(scalar>epsilon) { // if the surface before isnt lit then dont add anything
 				needs_sampling = needs_sampling || scene->mat[objIdx].needs_sampling();
 				done_reflections++;
-				color += (scene->color(objIdx,p,surf_norm) * scalar);
-				
+				color += (scene->color(objIdx,p,surf_norm,state) * scalar);
 				if(i < reflections) { // if its not the last reflection or triangle hit not reflective
 					O = p;
 					D = scene->mat[objIdx].bounce(O,surf_norm,state);
