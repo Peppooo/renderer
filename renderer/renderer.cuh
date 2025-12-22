@@ -41,11 +41,12 @@ __device__ __forceinline__ float direct_light(const vec3* lights,const size_t& l
 
 __device__ __forceinline__ float indirect_light(const vec3* lights,const size_t& lightsSize,const Scene* scene,const vec3& p,const vec3& n,const int& numRays,curandStatePhilox4_32_10_t* state) {
 	float max_scalar = 0;
+	float direct_scalar = direct_light(lights,lightsSize,scene,p,n);
 	for(int i = 0; i < numRays; i++) {
 		// picking ray direction by pointing to random point on each reflective object in the scene
 		int current_scene_idx = i % scene->sceneSize;
 		vec3 d = {0,0,0};
-		if(scene->mat[current_scene_idx].type == diffuse) continue;
+		//if(scene->mat[current_scene_idx].type == diffuse) continue;
 		if(!scene->sphere[current_scene_idx]) {
 			if((i) / scene->sceneSize < 1) {
 				d = (scene->a[current_scene_idx] + scene->b[current_scene_idx] + scene->c[current_scene_idx]) / 3 - p;
@@ -67,7 +68,7 @@ __device__ __forceinline__ float indirect_light(const vec3* lights,const size_t&
 		
 		int objIdx = castRay(scene,p,d,surf,surf_norm);
 		if(objIdx != -1) {
-			float scalar = direct_light(lights,lightsSize,scene,surf,surf_norm) * dot(n,(surf - p).norm());
+			float scalar = direct_light(lights,lightsSize,scene,surf,surf_norm) * direct_scalar;
 			if(scalar > max_scalar) {
 
 				max_scalar = scalar;
@@ -81,7 +82,7 @@ __device__ __forceinline__ float indirect_light(const vec3* lights,const size_t&
 }
 
 __device__ __forceinline__ vec3 compute_ray(const vec3* lights,const size_t& lightsSize,const Scene* scene,vec3 O,vec3 D,curandStatePhilox4_32_10_t* state,bool& needs_sampling,int reflections = 2,int rlRays = 64) {
-	vec3 color = {0,0,0}; int done_reflections = 0;
+	vec3 color = {0,0,0}; int done_reflections = 0; bool skyHit = false;
 	needs_sampling = false;
 	for(int i = 0; i < reflections; i++) {
 		vec3 p,surf_norm = {0,0,0}; // p is the intersection location
@@ -89,8 +90,8 @@ __device__ __forceinline__ vec3 compute_ray(const vec3* lights,const size_t& lig
 		if(objIdx != -1) {
 			//printf("obj hit\n");
 			float scalar = direct_light(lights,lightsSize,scene,p,surf_norm);
-			//if(scalar <= 0.99 && d_hq) {
-			//	scalar = max(scalar,indirect_light(p,surf_norm,rlRays,state));
+			//if(scalar <= 0.99) {
+			//	scalar = max(scalar,indirect_light(lights,lightsSize,scene,p,surf_norm,rlRays,state));
 			//}
 
 			if(scalar>epsilon) { // if the surface before isnt lit then dont add anything
@@ -108,10 +109,11 @@ __device__ __forceinline__ vec3 compute_ray(const vec3* lights,const size_t& lig
 			}
 		}
 		else {
+			if(i == 0) skyHit = true;
 			break; // ray didnt hit anything
 		}
 	}
-	if(done_reflections == 0) {
+	if(skyHit) {
 		float kY = (D.norm().y + 1) / 2;
 		return vec3{191,245,255}*kY + vec3{0, 110, 255}*(1 - kY);
 	}

@@ -18,7 +18,7 @@ public:
 	vec3 center; // IF YOU CHANGE THIS IT WILL NOT CHANGE THE CENTER OF THE SPHERE
 	bool sphere;
 	__host__ object() {};
-	__host__ object(vec3 A,vec3 B,vec3 C,object* scene,int& sceneSize,material Mat,texture* Tex,bool Sphere = false):
+	__host__ object(const vec3& A,const vec3& B,const vec3& C,object* scene,size_t& sceneSize,const material& Mat,texture* Tex,bool Sphere = false):
 	a(A),b(B),c(C),mat(Mat),tex(Tex),sphere(Sphere),velocity(vec3{0,0,0})
 	{
 		center = sphere ? a : (A + B + C) / 3.0f;
@@ -30,7 +30,7 @@ public:
 	}
 };
 
-__host__ void plane(vec3 a,vec3 b,vec3 c,vec3 d,object* scene,int& sceneSize,material mat,texture* tex) { // only works for a square for now
+__host__ void plane(vec3 a,vec3 b,vec3 c,vec3 d,object* scene,size_t& sceneSize,material mat,texture* tex) { // only works for a square for now
 	vec3 points[4] = {a,b,c,d};
 	int perpPointIdx = -1;
 	float maxDist = -1;
@@ -46,7 +46,7 @@ __host__ void plane(vec3 a,vec3 b,vec3 c,vec3 d,object* scene,int& sceneSize,mat
 	object(points[2],points[1],points[3],scene,sceneSize,mat,tex,false);
 }
 
-__host__ void cube(vec3 edge,float lx,float ly,float lz,object* scene,int& sceneSize,material mat,texture* tex) {
+__host__ void cube(vec3 edge,float lx,float ly,float lz,object* scene,size_t& sceneSize,material mat,texture* tex) {
 	object(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},scene,sceneSize,mat,tex,false);
 	object(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{lx,0,0},scene,sceneSize,mat,tex,false);
 	object(edge,edge + vec3{0,0,lz},edge + vec3{0,ly,0},scene,sceneSize,mat,tex,false);
@@ -72,11 +72,11 @@ enum faces {
 	bottom
 };
 
-__host__ void sphere(vec3 center,float radius,object* scene,int& sceneSize,material mat,texture* tex) {
+__host__ void sphere(vec3 center,float radius,object* scene,size_t& sceneSize,material mat,texture* tex) {
 	object(center,vec3{radius,0.0f,0.0f},vec3{0.0f,0.0f,0.0f},scene,sceneSize,mat,tex,true);
 }
 
-void trigSphereDist(const int& sphereIdx,const int& trigIdx,float& dist,vec3& surf,object* scene) { // idx1 == trig
+void trigSphereDist(const size_t& sphereIdx,const size_t& trigIdx,float& dist,vec3& surf,object* scene) { // idx1 == trig
 	if(scene[sphereIdx].sphere == scene[trigIdx].sphere) {
 		throw "pass sphere and trig";
 	}

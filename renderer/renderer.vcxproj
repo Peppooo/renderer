@@ -87,6 +87,7 @@
     <ClInclude Include="engine.cuh" />
     <ClInclude Include="material.cuh" />
     <ClInclude Include="objects.cuh" />
+    <ClInclude Include="obj_loader.cuh" />
     <ClInclude Include="physics.cuh" />
     <ClInclude Include="renderer.cuh" />
     <ClInclude Include="scene.cuh" />

@@ -34,8 +34,8 @@ public:
 	Scene* scene;
 	vec3* lights;
 
-	__host__ renderer(const int& W,const int& H,const float& Fov = M_PI_2,const int& samples_per_pixel = 1,const int& Max_reflections = 4,const int& Ssaa = 1): // rotation = {yaw,pitch}, Fov is in radians
-		w(W),h(H),fov(Fov),max_reflections(Max_reflections),ssaa(Ssaa),n_samples_pixel(samples_per_pixel) {
+	__host__ renderer(const int& W,const int& H,const float& Fov = M_PI_2,const int& samples_per_pixel = 1,const int& Max_reflections = 4,const int& Ssaa = 1,const int Indirect_rays=32): // rotation = {yaw,pitch}, Fov is in radians
+		w(W),h(H),fov(Fov),max_reflections(Max_reflections),ssaa(Ssaa),n_samples_pixel(samples_per_pixel),indirect_rays(Indirect_rays) {
 	}
 	__host__ void init(const char* win_name) {
 		SDL_Init(SDL_INIT_EVERYTHING);
@@ -87,7 +87,7 @@ public:
 	void import_scene_from_host(const Scene* h_scene) {
 		cudaMemcpy(scene,h_scene,sizeof(Scene),cudaMemcpyHostToDevice);
 	}
-	void import_scene_from_host_array(const object* h_scene,const int& h_sceneSize) {
+	void import_scene_from_host_array(const object* h_scene,const size_t& h_sceneSize) {
 		Scene* h_scene_soa = new Scene;
 		h_scene_soa->sceneSize = 0;
 		for(int i = 0; i < h_sceneSize; i++) {

@@ -48,6 +48,7 @@ public:
 		fclose(file);
 		cudaMalloc(&matrix,MAX_TEX_SIZE*sizeof(rgb));
 		cudaMemcpy(matrix,h_matrix,MAX_TEX_SIZE*sizeof(rgb),cudaMemcpyHostToDevice);
+		free(h_matrix); // ATTENTO DIO PORCOOOOOOOOOOOOOOOOOO
 	};
 	texture(vec3 Color = {0,0,0}):_texture(false),color(Color) {};
 	__device__ vec3 at(const vec3& p,const vec3& N,curandStatePhilox4_32_10_t* state) const {

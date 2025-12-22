@@ -3,18 +3,16 @@
 #include <chrono>
 #include "engine.cuh"
 #include "settings.cuh"
+#include "obj_loader.cuh"
 
 using namespace std;
 
 
-const vec3 gravity = {0,-1,0};
-
-
 int main() {
-	renderer Camera(1024,1024,M_PI/1.4f,8,4,1);
+	renderer Camera(1024,1024,M_PI / 1.4f,16,4,1);
 	Camera.init("renderer");
 	// scene infos
-	object* h_scene = new object[MAX_OBJ]; int h_sceneSize = 0; // scene size calculated step by step 
+	object* h_scene = new object[MAX_OBJ]; size_t h_sceneSize = 0; // scene size calculated step by step 
 	vec3 h_lights[1] = {{0,1,0}}; int h_lightsSize = 1;
 
 	COLOR_TEXTURE(white_texture,(vec3{250,250,250}));
@@ -22,18 +20,19 @@ int main() {
 	COLOR_TEXTURE(red_texture,(vec3{250,0,0}));
 
 	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor.tex",vec2(0,0),vec2(0.5f,0.5f),false,799,783);
+
+	load_obj_in_array_scene("..\\objects\\chess.obj",vec3(0,0,10),material(diffuse),white_texture,h_scene,h_sceneSize);
 	
-	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse),floor_texture);
+	//plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse),floor_texture);
 
-	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),red_texture);
+	//plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),red_texture);
 
-	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),green_texture);
+	//plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),green_texture);
 
 
-	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse),white_texture);
+	//plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse),white_texture);
 
-	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.6f),white_texture);
-	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(glossy,0.6f),white_texture);
+	//plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.6f),white_texture);
 
 
 	int numKeys;
@@ -107,7 +106,7 @@ int main() {
 				Camera.origin += rotation(0,0,Camera.yaw) * move.norm() * curr_move_speed * Camera.frame_dt;
 			}
 			else {
-				h_lights[current_light_index] = h_lights[current_light_index] + move.norm() * move_speed * Camera.frame_dt;
+				h_lights[current_light_index] = h_lights[current_light_index] + move.norm() * curr_move_speed * Camera.frame_dt;
 				Camera.import_lights_from_host(h_lights,h_lightsSize);
 			}
 		}
