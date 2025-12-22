@@ -9,8 +9,8 @@ void handlePhysics(object* scene,const int& sceneSize) {
 				float dist = -((b.a - a.a).len()-a.b.x-b.b.x);
 				if(dist > 0) {
 					vec3 n = (a.a - b.a).norm();
-					a.a = a.a + n * (dist / 2 + 0.001);
-					b.a = b.a - n * (dist / 2 + 0.001);
+					a.a = a.a + n * (dist / 2 + 0.001f);
+					b.a = b.a - n * (dist / 2 + 0.001f);
 					vec3 rv = b.velocity - a.velocity;
 					float velAlongNorm = dot(rv,n);
 					if(velAlongNorm > 0) return;

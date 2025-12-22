@@ -51,5 +51,6 @@ public:
 			}
 			return result;
 		}
+		return vec3(0,0,0);
 	}
 };

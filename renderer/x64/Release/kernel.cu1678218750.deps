@@ -187,6 +187,7 @@ C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\vector_function
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\vector_functions.hpp
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\include\vector_types.h
 C:\Users\pietr\source\repos\renderer\renderer\algebra.cuh
+C:\Users\pietr\source\repos\renderer\renderer\engine.cuh
 C:\Users\pietr\source\repos\renderer\renderer\material.cuh
 C:\Users\pietr\source\repos\renderer\renderer\objects.cuh
 C:\Users\pietr\source\repos\renderer\renderer\physics.cuh

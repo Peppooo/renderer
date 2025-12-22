@@ -14,7 +14,7 @@ public:
 	vec3 center[MAX_OBJ];
 	material mat[MAX_OBJ];
 	bool sphere[MAX_OBJ],use_tex[MAX_OBJ];
-	int sceneSize;
+	size_t sceneSize;
 	void addObject(const object& obj) {
 		a[sceneSize] = obj.a;
 		b[sceneSize] = obj.b;
