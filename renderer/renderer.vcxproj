@@ -84,6 +84,7 @@
     <CudaCompile Include="kernel.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="bvh.cuh" />
     <ClInclude Include="engine.cuh" />
     <ClInclude Include="material.cuh" />
     <ClInclude Include="objects.cuh" />

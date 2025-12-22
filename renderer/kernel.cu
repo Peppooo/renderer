@@ -7,7 +7,6 @@
 
 using namespace std;
 
-
 int main() {
 	renderer Camera(1024,1024,M_PI / 1.4f,16,4,1);
 	Camera.init("renderer");
@@ -22,13 +21,14 @@ int main() {
 	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor.tex",vec2(0,0),vec2(0.5f,0.5f),false,799,783);
 
 	load_obj_in_array_scene("..\\objects\\chess.obj",vec3(0,0,10),material(diffuse),white_texture,h_scene,h_sceneSize);
+
+	
 	
 	//plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse),floor_texture);
 
 	//plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),red_texture);
 
 	//plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),green_texture);
-
 
 	//plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse),white_texture);
 
@@ -44,6 +44,8 @@ int main() {
 	auto lastTime = chrono::high_resolution_clock::now();
 
 	float sum_time = 0;
+
+
 
 	Camera.import_scene_from_host_array(h_scene,h_sceneSize);
 	Camera.import_lights_from_host(h_lights,h_lightsSize);
@@ -75,6 +77,7 @@ int main() {
 			if(e.type == SDL_MOUSEMOTION) {
 				Camera.yaw -= e.motion.xrel * mouse_sens;
 				Camera.pitch -= e.motion.yrel * mouse_sens;
+				cout << Camera.yaw << endl;
 			}
 		}
 

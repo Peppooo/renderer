@@ -26,6 +26,9 @@ struct vec3 {
 	__host__ __device__ __forceinline__ vec3 operator*(const float& scalar) const {
 		return {x * scalar,y * scalar,z * scalar};
 	}
+	__host__ __device__ __forceinline__ vec3 operator*(const vec3& v) const {
+		return {x * v.x,y*v.y,z*v.z};
+	}
 	__host__ __device__ __forceinline__ vec3 operator/(const float& scalar) const {
 		return {x / scalar,y / scalar,z / scalar};
 	}
@@ -65,6 +68,10 @@ struct vec3 {
 		return (255 << 24) | ((unsigned char)x << 16) | ((unsigned char)y << 8) | (unsigned char)z;
 	}
 };
+
+__host__ __device__ __forceinline__ vec3 operator/(const float a,const vec3& v) {
+	return vec3(a/v.x,a/v.y,a/v.z);
+}
 
 struct vec2 {
 public:
@@ -161,4 +168,12 @@ __device__ vec3 any_perpendicular(const vec3& v) {
 
 __device__ float d_min(const float& a,const float& b) {
 	return a < b ? a : b;
+}
+
+__host__ __device__ vec3 v_min(const vec3& a,const vec3& b) {
+	return vec3(min(a.x,b.x),min(a.y,b.y),min(a.z,b.z));
+}
+
+__host__ __device__ vec3 v_max(const vec3& a,const vec3& b) {
+	return vec3(max(a.x,b.x),max(a.y,b.y),max(a.z,b.z));
 }

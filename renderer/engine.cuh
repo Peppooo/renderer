@@ -17,7 +17,7 @@ private:
 	uint32_t* d_framebuffer;
 	uint32_t* framebuffer;
 	chrono::time_point<chrono::steady_clock> lastTime;
-	
+	boundingBox bounding;
 public:
 	// host
 
@@ -35,7 +35,7 @@ public:
 	vec3* lights;
 
 	__host__ renderer(const int& W,const int& H,const float& Fov = M_PI_2,const int& samples_per_pixel = 1,const int& Max_reflections = 4,const int& Ssaa = 1,const int Indirect_rays=32): // rotation = {yaw,pitch}, Fov is in radians
-		w(W),h(H),fov(Fov),max_reflections(Max_reflections),ssaa(Ssaa),n_samples_pixel(samples_per_pixel),indirect_rays(Indirect_rays) {
+		yaw(0),pitch(0),origin(0,0,0),frame_n(0),frame_dt(0),w(W),h(H),fov(Fov),max_reflections(Max_reflections),ssaa(Ssaa),n_samples_pixel(samples_per_pixel),indirect_rays(Indirect_rays) {
 	}
 	__host__ void init(const char* win_name) {
 		SDL_Init(SDL_INIT_EVERYTHING);
@@ -69,7 +69,7 @@ public:
 		dim3 block(8,8);
 		dim3 grid((w + block.x - 1) / block.x,(h + block.y - 1) / block.y);
 
-		render_pixel << <grid,block >> > (w,h,lights,lightsSize,scene,d_framebuffer,origin,rot,focal_length,indirect_rays,ssaa,max_reflections,n_samples_pixel,seed);
+		render_pixel << <grid,block >> > (w,h,lights,lightsSize,scene,bounding,d_framebuffer,origin,rot,focal_length,indirect_rays,ssaa,max_reflections,n_samples_pixel,seed);
 
 		cudaError_t err = cudaGetLastError();
 		if(err != cudaSuccess) {
@@ -84,16 +84,20 @@ public:
 		SDL_RenderPresent(sdl_renderer);
 		frame_n++;
 	}
-	void import_scene_from_host(const Scene* h_scene) {
+	void import_scene_from_host(const Scene* h_scene,bool comingFromEngineFunc=false) {
+		if(!comingFromEngineFunc) {
+			build_bounding_box(bounding,h_scene);
+		}
 		cudaMemcpy(scene,h_scene,sizeof(Scene),cudaMemcpyHostToDevice);
 	}
 	void import_scene_from_host_array(const object* h_scene,const size_t& h_sceneSize) {
+		build_bounding_box_from_array(bounding,h_scene,h_sceneSize);
 		Scene* h_scene_soa = new Scene;
 		h_scene_soa->sceneSize = 0;
 		for(int i = 0; i < h_sceneSize; i++) {
 			h_scene_soa->addObject(h_scene[i]);
 		}
-		import_scene_from_host(h_scene_soa);
+		import_scene_from_host(h_scene_soa,true);
 	}
 	void import_lights_from_host(const vec3* h_lights,const int& h_lightsSize) {
 		cudaMemcpy(lights,h_lights,sizeof(vec3)*lightsSize,cudaMemcpyHostToDevice);
