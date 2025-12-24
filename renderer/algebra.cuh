@@ -21,16 +21,27 @@ class matrix;
 
 struct vec3 {
 	float x,y,z;
-	__host__ __device__ vec3() {};
-	__host__ __device__ vec3(float X,float Y,float Z): x(X),y(Y),z(Z) {}
-	__host__ __device__ __forceinline__ vec3 operator*(const float& scalar) const {
+	__host__ __device__ __forceinline__ float& operator[](const int i) {
+		if(i == 0) return x;
+		if(i == 1) return y;
+		return z;
+	}
+	__host__ __device__ __forceinline__ const float& axis(const int i) const {
+		if(i == 0) return x;
+		if(i == 1) return y;
+		return z;
+	}
+	__host__ __device__ __forceinline__ vec3 operator*(const float scalar) const {
 		return {x * scalar,y * scalar,z * scalar};
 	}
 	__host__ __device__ __forceinline__ vec3 operator*(const vec3& v) const {
 		return {x * v.x,y*v.y,z*v.z};
 	}
-	__host__ __device__ __forceinline__ vec3 operator/(const float& scalar) const {
+	__host__ __device__ __forceinline__ vec3 operator/(const float scalar) const {
 		return {x / scalar,y / scalar,z / scalar};
+	}
+	__host__ __device__ __forceinline__ vec3 operator/(const vec3& v) const {
+		return {x / v.x,y / v.y,z / v.z};
 	}
 	__host__ __device__ __forceinline__ vec3 operator+(const vec3& a) const {
 		return {x + a.x,y + a.y,z + a.z};
@@ -46,7 +57,7 @@ struct vec3 {
 		y += v.y;
 		z += v.z;
 	}
-	__host__ __device__ __forceinline__ void operator*= (const float& scalar) {
+	__host__ __device__ __forceinline__ void operator*= (const float scalar) {
 		x *= scalar;
 		y *= scalar;
 		z *= scalar;
@@ -70,15 +81,15 @@ struct vec3 {
 };
 
 __host__ __device__ __forceinline__ vec3 operator/(const float a,const vec3& v) {
-	return vec3(a/v.x,a/v.y,a/v.z);
+	return vec3{a / v.x,a / v.y,a / v.z};
 }
 
 struct vec2 {
 public:
 	float x,y;
 	__host__ __device__ vec2(): x(0),y(0) {};
-	__host__ __device__ vec2(const float& X,const float& Y): x(X),y(Y) {}
-	__host__ __device__ vec2 operator*(const float& a) {
+	__host__ __device__ vec2(const float X,const float Y): x(X),y(Y) {}
+	__host__ __device__ vec2 operator*(const float a) {
 		return vec2(x * a,y * a);
 	}
 	__host__ __device__ vec2 operator+(const vec2& v) {
@@ -112,23 +123,23 @@ __host__ __device__ __forceinline__ float dot(const vec3& a,const vec3& b) {
 }
 
 __host__ __device__ __forceinline__
-matrix rotation(const float& yaw,const float& pitch,const float& roll)
+matrix rotation(const float yaw,const float pitch,const float roll)
 {
 	const float cy = cosf(yaw);   const float sy = sinf(yaw);
 	const float cp = cosf(pitch); const float sp = sinf(pitch);
 	const float cr = cosf(roll);  const float sr = sinf(roll);
 
-	matrix Rz = {vec3(cy, -sy, 0),
-				  vec3(sy,  cy, 0),
-				  vec3(0 ,   0, 1)};
+	matrix Rz = {cy, -sy, 0,
+				  sy,  cy, 0,
+				  0 ,   0, 1};
 
-	matrix Rx = {vec3(1,   0 ,   0),
-				  vec3(0,  cp, -sp),
-				  vec3(0,  sp,  cp)};
+	matrix Rx = {1,   0 ,   0,
+				  0,  cp, -sp,
+				  0,  sp,  cp};
 
-	matrix Ry = {vec3(cr, 0, sr),
-				  vec3(0 , 1, 0),
-				 vec3(- sr, 0, cr)};
+	matrix Ry = {cr, 0, sr,
+				  0 , 1, 0,
+				 -sr, 0, cr};
 
 	return Rz * Rx * Ry;
 }
@@ -158,22 +169,28 @@ __device__ float sum(float* list,const int& size) {
 	return sum;
 }
 
-__device__ float clamp(const float& x,const float& min,const float& max) {
+__device__ __forceinline__ float clamp(const float& x,const float& min,const float& max) {
 	return (((x) <= (min)) ? (min) : (((x) >= (max)) ? (max) : (x)));
 }
 
-__device__ vec3 any_perpendicular(const vec3& v) {
+__device__ __forceinline__ vec3 any_perpendicular(const vec3& v) {
 	return abs(v.x) > abs(v.z) ? vec3{-v.y, v.x, 0} : vec3{0, -v.z, v.y};
 }
 
-__device__ float d_min(const float& a,const float& b) {
+__device__ __forceinline__ float d_min(const float& a,const float& b) {
 	return a < b ? a : b;
 }
 
-__host__ __device__ vec3 v_min(const vec3& a,const vec3& b) {
-	return vec3(min(a.x,b.x),min(a.y,b.y),min(a.z,b.z));
+__host__ __device__ __forceinline__ vec3 v_min(const vec3& a,const vec3& b) {
+	return vec3{min(a.x,b.x),min(a.y,b.y),min(a.z,b.z)};
 }
 
-__host__ __device__ vec3 v_max(const vec3& a,const vec3& b) {
-	return vec3(max(a.x,b.x),max(a.y,b.y),max(a.z,b.z));
+__host__ __device__ __forceinline__ vec3 v_max(const vec3& a,const vec3& b) {
+	return vec3{max(a.x,b.x),max(a.y,b.y),max(a.z,b.z)};
+}
+
+__host__ __device__ __forceinline__ int max_idx(const vec3& v) {
+	if(v.x >= v.y && v.x >= v.z) return 0;
+	if(v.y >= v.x && v.y >= v.z) return 1;
+	return 2;
 }

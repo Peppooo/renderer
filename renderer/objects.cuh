@@ -28,6 +28,20 @@ public:
 		scene[sceneSize] = *this;
 		sceneSize++;
 	}
+	const vec3& operator[](const int idx) const {
+		if(idx == 0) return a;
+		if(idx == 1) return b;
+		return c;
+	}
+	vec3& max_point_on_axis(int axis) {
+		vec3& max = a;
+		for(int i = 1; i < 3; i++) {
+			if(max.axis(axis) < (*this)[i].axis(axis)) {
+				max = (*this)[i];
+			}
+		}
+		return max;
+	}
 };
 
 __host__ void plane(vec3 a,vec3 b,vec3 c,vec3 d,object* scene,size_t& sceneSize,material mat,texture* tex) { // only works for a square for now
