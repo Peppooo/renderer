@@ -4,14 +4,26 @@
 #include "scene.cuh"
 #include "bvh.cuh"
 
-__device__ __forceinline__ size_t castRay(const Scene* scene,const BVH& bvh,const vec3& O,const vec3& D,vec3& p,vec3& n) {
+__device__ __forceinline__ int castRay(const Scene* scene,const BVH& bvh,const vec3& O,const vec3& D,vec3& p,vec3& n) {
 	int closestIdx = -1;
 	float closest_dist = INFINITY;
 	float dist = 0;
 	int boundIdx = -1;
 	box hit;
 	
-	if(bvh.castRay(O,D,hit)) {
+	if(bvh.castRay(0,O,D,hit)) {
+		return 0;
+	}
+	return -1;
+
+
+	/*if(bvh.nodes[1].self.intersect(O,D,dist)) {
+		return 0;
+	}
+	else return -1;*/
+	//bvh.castRay(O,D,bvh.nodes,bvh.nodesSize,scene,dist,closestIdx);
+
+	/*if(bvh.castRay(O,D,)) {
 		for(int i = hit.startIndex; i < (hit.startIndex+hit.length); i++) {
 			vec3 temp_p,temp_n;
 			if(scene->intersect(i,O,D,temp_p,temp_n)) {
@@ -24,11 +36,12 @@ __device__ __forceinline__ size_t castRay(const Scene* scene,const BVH& bvh,cons
 				}
 			}
 		}
-	}
+	}*/
 	return closestIdx;
 }
 
 __device__ __forceinline__ float direct_light(const vec3* lights,const size_t& lightsSize,const Scene* scene,const BVH& bvh,const vec3& p,const vec3& n) { // gets illumination from the brightest of all the lights
+	return 1;
 	float max_light_scalar = 0;
 	vec3 normalized_n = n.len2()==1?n:n.norm();
 	vec3 pl,nl;

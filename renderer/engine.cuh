@@ -62,7 +62,6 @@ public:
 		frame_dt = deltaTime.count();
 		lastTime = currentTime;
 		
-
 		int _pitch;
 		SDL_LockTexture(frame_texture,nullptr,(void**)&framebuffer,&_pitch);
 
@@ -99,7 +98,7 @@ public:
 	void import_scene_from_host_array(object* h_scene,size_t& h_sceneSize) {
 		//build_scene_bounding_box(bounding,h_scene,h_sceneSize);
 		bvh.init();
-		bvh.build(6,h_scene,h_sceneSize);
+		bvh.build(15,h_scene,h_sceneSize);
 		Scene* h_scene_soa = new Scene;
 		h_scene_soa->sceneSize = 0;
 		for(int i = 0; i < h_sceneSize; i++) {

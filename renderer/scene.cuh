@@ -86,5 +86,11 @@ public:
 
 		return true;
 	}
+
+	__device__ __host__ object toObject(const int idx) const {
+		size_t __a=0;
+		object* fake_scene = new object;
+		return object(a[idx],b[idx],c[idx],fake_scene,__a,mat[idx],tex[idx],sphere[idx]);
+	}
 };
 
