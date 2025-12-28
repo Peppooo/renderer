@@ -53,7 +53,6 @@ public:
 			w,
 			h
 		);
-		cudaDeviceSetLimit(cudaLimitMallocHeapSize,1024 * 1024 * 64);
 		cudaMalloc(&d_framebuffer,sizeof(uint32_t) * w * h);
 		cudaMalloc(&scene,sizeof(Scene));
 		cudaMalloc(&lights,sizeof(vec3) * MAX_LIGHTS);
@@ -95,7 +94,7 @@ public:
 
 	void import_scene_from_host_array(object* h_scene,const size_t h_sceneSize) {
 		//build_scene_bounding_box(bounding,h_scene,h_sceneSize);
-		tree.build(16,h_scene,h_sceneSize);
+		tree.build(20,h_scene,h_sceneSize);
 		tree.printNodes();
 		Scene* h_scene_soa = new Scene;
 		h_scene_soa->sceneSize = 0;

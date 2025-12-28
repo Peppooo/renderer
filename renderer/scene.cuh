@@ -1,7 +1,7 @@
 #pragma once
 #include "objects.cuh"
 
-#define MAX_OBJ 50000
+#define MAX_OBJ 1000000
 
 class Scene {
 public:

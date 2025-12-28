@@ -12,7 +12,6 @@ class box {
 public:
 	vec3 Min,Max;
 	int startIndex; int trigCount;
-	vec3 color;
 	vec3 center() const {
 		return (Min + Max) * 0.5f;
 	}
@@ -84,7 +83,7 @@ public:
 	int rightChild = -1;
 	int depth = 0;
 };
-#define max_nodes 2000
+#define max_nodes 20000
 
 class bvh {
 private:
@@ -111,7 +110,12 @@ public:
 
 		int split_axis = max_idx(nodes[idx].bounds.Max - nodes[idx].bounds.Min);
 
-		vec3 parentCenter = nodes[idx].bounds.center();
+		vec3 centerSum;
+		for(int i = 0; i < nodes[idx].bounds.trigCount; i++) {
+			centerSum+=scene[nodes[idx].bounds.startIndex + i].center();
+		}
+		vec3 parentCenter = centerSum / nodes[idx].bounds.trigCount;
+		//vec3 parentCenter = nodes[idx].bounds.center();
 
 		for(int i = 0; i < nodes[idx].bounds.trigCount; i++) {
 			int current_idx = nodes[idx].bounds.startIndex + i;
@@ -162,6 +166,15 @@ public:
 		cudaMalloc(&dev_nodes,sizeof(node) * nodesCount);
 		cudaMemcpy(dev_nodes,nodes,sizeof(node) * nodesCount,cudaMemcpyHostToDevice);
 
+	}
+	__device__ int castRayBox(const vec3& o,const vec3& d) {
+		for(int i = 0; i < nodesCount; i++) {
+			if(dev_nodes[i].leftChild == -1 && dev_nodes[i].rightChild == -1) {
+				if(dev_nodes[i].bounds.intersect(o,d)) {
+					return ;
+				}
+			}
+		}
 	}
 	__device__ int castRay(const Scene* scene,const vec3& o,const vec3& d,vec3& p,vec3& n) const {
 		int stack[100]; int stackSize = 0;

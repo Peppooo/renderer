@@ -29,6 +29,9 @@ public:
 	vec3 center() const {
 		return (a + b + c) * 0.3333334f;
 	}
+	float area() const {
+		return (cross(v0,v1).len()*0.5f);
+	}
 	const vec3& operator[](const int idx) const {
 		if(idx == 0) return a;
 		if(idx == 1) return b;
