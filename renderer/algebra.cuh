@@ -4,9 +4,19 @@
 #include "device_launch_parameters.h"
 #include <curand_kernel.h>
 
+#define CUDA_CHECK(call)                                     \
+do {                                                         \
+    cudaError_t err = call;                                  \
+    if (err != cudaSuccess) {                                \
+        fprintf(stderr, "CUDA error %s:%d: %s\n",            \
+                __FILE__, __LINE__, cudaGetErrorString(err));\
+        exit(1);                                             \
+    }                                                        \
+} while (0)
+
 using namespace std;
 
-__device__ __constant__ float epsilon = 1e-3;
+constexpr float epsilon = 1e-3;
 __device__ bool d_hq = false;
 
 
@@ -78,7 +88,12 @@ struct vec3 {
 	__host__ __device__ uint32_t argb() const {
 		return (255 << 24) | ((unsigned char)x << 16) | ((unsigned char)y << 8) | (unsigned char)z;
 	}
+	static const vec3 One;
+	static const vec3 Zero;
 };
+
+const vec3 vec3::One = {1,1,1};
+const vec3 vec3::Zero = {0,0,0};
 
 __host__ __device__ __forceinline__ vec3 operator/(const float a,const vec3& v) {
 	return vec3{a / v.x,a / v.y,a / v.z};

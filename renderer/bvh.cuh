@@ -2,221 +2,223 @@
 #include <vector>
 #include <iostream>
 
+__device__ void d_swap(float& f1,float& f2) {
+	float copy = f1;
+	f1 = f2;
+	f2 = copy;
+}
+
 class box {
 public:
-	vec3 edge,size;
-	int startIndex,length;
-	__host__ __device__ bool contained(const vec3 v) {
-		vec3 max = edge + size;
-		return (v.x <= max.x && v.y <= max.y && v.z <= max.z && v.x >= edge.x && v.y >= edge.y && v.z >= edge.z);
+	vec3 Min,Max;
+	int startIndex; int trigCount;
+	vec3 color;
+	vec3 center() const {
+		return (Min + Max) * 0.5f;
 	}
-	__host__ __device__ int count_verts(const object obj) {
-		int count = 0;
-		for(int i = 0; i < 3; i++) {
-			if(contained(obj[i])) {
-				count++;
-			}
+	__device__ bool intersect(const vec3& O,const vec3& D) const
+	{
+		float tmin = -FLT_MAX;
+		float tmax = FLT_MAX;
+
+		// X slab
+		if(D.x != 0.0f)
+		{
+			float inv = 1.0f / D.x;
+			float t0 = (Min.x - O.x) * inv;
+			float t1 = (Max.x - O.x) * inv;
+			if(t0 > t1) d_swap(t0,t1);
+			tmin = max(tmin,t0);
+			tmax = min(tmax,t1);
 		}
-		return count;
+		else if(O.x < Min.x || O.x > Max.x)
+			return false;
+
+		// Y slab
+		if(D.y != 0.0f)
+		{
+			float inv = 1.0f / D.y;
+			float t0 = (Min.y - O.y) * inv;
+			float t1 = (Max.y - O.y) * inv;
+			if(t0 > t1) d_swap(t0,t1);
+			tmin = max(tmin,t0);
+			tmax = min(tmax,t1);
+		}
+		else if(O.y < Min.y || O.y > Max.y)
+			return false;
+
+		// Z slab
+		if(D.z != 0.0f)
+		{
+			float inv = 1.0f / D.z;
+			float t0 = (Min.z - O.z) * inv;
+			float t1 = (Max.z - O.z) * inv;
+			if(t0 > t1) d_swap(t0,t1);
+			tmin = max(tmin,t0);
+			tmax = min(tmax,t1);
+		}
+		else if(O.z < Min.z || O.z > Max.z)
+			return false;
+
+		if(tmax < 0.0f || tmin > tmax)
+			return false;
+
+		return true;
 	}
-	__device__ bool intersect(const vec3& O,const vec3& D,float& dist) const {
-		vec3 invDir = 1 / D;
-		vec3 t0s = (edge - O) * invDir;
-		vec3 t1s = (edge + size - O) * invDir;
-
-		vec3 tmin3 = v_min(t0s,t1s);
-		vec3 tmax3 = v_max(t0s,t1s);
-
-		dist = max(max(tmin3.x,tmin3.y),tmin3.z);
-		float tmax = min(min(tmax3.x,tmax3.y),tmax3.z);
-
-		return (tmax >= max(dist,0.0f));
+	void grow_to_include_point(const vec3& v) {
+		Max = v_max(v,Max);
+		Min = v_min(v,Min);
+	}
+	void grow_to_include(const object& t) {
+		grow_to_include_point(t.a);
+		grow_to_include_point(t.b);
+		grow_to_include_point(t.c);
 	}
 };
+
 
 class node {
 public:
-	box self;
-	int child_nodeA = -1;
-	int child_nodeB = -1;
+	box bounds;
+	int leftChild = -1;
+	int rightChild = -1;
 	int depth = 0;
-	__host__ __device__ int operator[](int i){
-		if(i == 0) return child_nodeA;
-		return child_nodeB;
-	}
 };
+#define max_nodes 2000
 
-#define MAX_BVH_NODES 5000
+class bvh {
+private:
+	node* dev_nodes;
+public:
+	node* nodes = new node[max_nodes];
+	int nodesCount;
+	void buildChilds(object* scene,const int sceneSize,const int idx,const int max_depth) {
+		int left = nodesCount++;
+		int right = nodesCount++;
+		nodes[idx].leftChild = left;
+		nodes[idx].rightChild = right;
 
-class BVH {
-	private:
-		node* host_pointer;
-		node* device_pointer;
-		bool is_pointer_host;
-	public:
-		node* nodes;
-		int nodesSize;
-		__host__ void init() {
-			nodes = new node[MAX_BVH_NODES];
-			is_pointer_host = true;
-			host_pointer = nodes;
-			cudaMalloc(&device_pointer,sizeof(node) * MAX_BVH_NODES);
-			nodesSize = 0;
+
+		nodes[left].depth = nodes[idx].depth + 1;
+		nodes[right].depth = nodes[idx].depth + 1;
+
+		nodes[left].bounds.startIndex = nodes[idx].bounds.startIndex;
+		nodes[left].bounds.trigCount = 0;
+		nodes[left].bounds.Min = vec3::Zero;
+		nodes[left].bounds.Max = vec3::Zero;
+
+		nodes[right].bounds = nodes[left].bounds;
+
+		int split_axis = max_idx(nodes[idx].bounds.Max - nodes[idx].bounds.Min);
+
+		vec3 parentCenter = nodes[idx].bounds.center();
+
+		for(int i = 0; i < nodes[idx].bounds.trigCount; i++) {
+			int current_idx = nodes[idx].bounds.startIndex + i;
+
+			bool goLeftChild = parentCenter[split_axis] > (scene[current_idx].center())[split_axis];
+
+			int split_side_idx = goLeftChild ? left : right;
+			nodes[split_side_idx].bounds.grow_to_include(scene[current_idx]);
+
+			if(goLeftChild) {
+				int target_idx = nodes[split_side_idx].bounds.startIndex + nodes[split_side_idx].bounds.trigCount;
+				swap(scene[current_idx],scene[target_idx]);
+
+				nodes[right].bounds.startIndex++;
+			}
+
+
+			nodes[split_side_idx].bounds.trigCount++;
+
 		}
-		__host__ void build(const int max_depth,object* scene,const size_t sceneSize) {
-			nodesSize++;
-			vec3 minb = {FLT_MAX,FLT_MAX,FLT_MAX};
-			vec3 maxb = {-FLT_MAX,-FLT_MAX,-FLT_MAX};
-			for(int i = 0; i < sceneSize; i++) {
-				minb = v_min(minb,v_min(v_min(scene[i].a,scene[i].b),scene[i].c));
-				maxb = v_max(maxb,v_max(v_max(scene[i].a,scene[i].b),scene[i].c));
+
+
+		if(nodes[idx].depth < max_depth && nodesCount < (max_nodes - 3)) {
+			if(nodes[left].bounds.trigCount > 6) {
+				buildChilds(scene,sceneSize,left,max_depth);
 			}
-			nodes[0].self = box();
-			nodes[0].self.edge = minb;
-			nodes[0].self.size = maxb - minb;
-			nodes[0].depth = 0;
-			nodes[0].self.length = sceneSize;
-			nodes[0].self.startIndex = 0;
-			buildChild(0,max_depth,scene,sceneSize);
+			if(nodes[right].bounds.trigCount > 6) {
+				buildChilds(scene,sceneSize,right,max_depth);
+
+			}
+
 		}
-		__host__ void buildChild(const int idx,const int max_depth,object* scene,const size_t sceneSize) {
-			if(nodesSize > MAX_BVH_NODES) {
-				cout << "exceeded nodes size limit" << endl;
-			}
-			nodesSize++;
-			nodes[idx].child_nodeA = nodesSize - 1;
-			nodesSize++;
-			nodes[idx].child_nodeB = nodesSize - 1;
 
-			int left = nodes[idx].child_nodeA;
-			int right = nodes[idx].child_nodeB;
-
-			nodes[left].depth = nodes[idx].depth + 1;
-			nodes[right].depth = nodes[idx].depth + 1;
-
-			// calcolo bounding box dei figli
-			vec3 minA = {FLT_MAX,FLT_MAX,FLT_MAX};
-			vec3 maxA = {-FLT_MAX,-FLT_MAX,-FLT_MAX};
-			int axis = max_idx(nodes[idx].self.size);
-			vector<int> index_a;
-			vector<int> index_b;
-			vector<int> middle;
-
-			vec3 newLeftSize = nodes[idx].self.size;
-			newLeftSize[axis] = (newLeftSize[axis]/2.0f);
-			nodes[left].self.size = newLeftSize;
-			nodes[left].self.edge = nodes[idx].self.edge;
-
-			//float leftMax = (nodes[left].self.edge + nodes[left].self.size)[axis];
-			index_a.clear(); index_b.clear(); middle.clear();
-			//cout << "Depth: " << nodes[left].depth << " , " << endl;
-			for(int i = nodes[idx].self.startIndex; i < (nodes[idx].self.startIndex+nodes[idx].self.length); i++) {
-				int numVertsIn = nodes[left].self.count_verts(scene[i]);
-				if(numVertsIn == 0) {
-					index_b.push_back(i);
-				}
-				else if(numVertsIn == 1 || numVertsIn == 2) {
-					//nodes[left].self.size[axis] = (v_max(scene[i].a,v_max(scene[i].b,scene[i].c))[axis] - nodes[left].self.edge[axis] + epsilon);
-					middle.push_back(i);
-				}
-				else if(numVertsIn==3) {
-					index_a.push_back(i);
-				}
-			}
-
-
-			int leftChildLength = (index_a.size() + middle.size());
-			int rightChildLength = (index_b.size() + middle.size());
-
-			int leftChildStart = nodes[idx].self.startIndex;
-			int rightChildStart = nodes[idx].self.startIndex + index_a.size();
-
-			//cout << "depth: " << nodes[left].depth << " , node a length: " << leftChildLength << " , node b length: " << rightChildLength << endl;
-
-
-			nodes[left].self.length = leftChildLength;    // assign positions of trigs contained in boundings
-			nodes[left].self.startIndex = leftChildStart;
-
-			nodes[right].self.length = rightChildLength;
-			nodes[right].self.startIndex = rightChildStart;
-
-
-			nodes[right].self.size = nodes[idx].self.size; // assign boundings size
-			nodes[right].self.size[axis] -= nodes[left].self.size[axis];
-
-			nodes[right].self.edge = nodes[idx].self.edge;
-			nodes[right].self.edge[axis] += nodes[left].self.size[axis];
-
-			object* new_scene = new object[sceneSize];
-
-			copy(scene,scene+ sceneSize,new_scene);
-
-
-			for (int i = 0; i < index_a.size(); i++) {
-				new_scene[nodes[idx].self.startIndex + i] = scene[index_a[i]];
-			}
-
-			for (int i = 0; i < middle.size(); i++) {
-				new_scene[nodes[idx].self.startIndex + index_a.size() + i] = scene[middle[i]];
-			}
-
-			for (int i = 0; i < index_b.size(); i++) {
-				new_scene[nodes[idx].self.startIndex + i + index_a.size() + middle.size()] = scene[index_b[i]];
-			}
-
-			// Clean up memory after copying:
-
-			//nodes[right].self.length = index_b.size();
-			//nodes[right].self.startIndex = nodes[idx].self.startIndex + nodes[left].self.length;
-
-			copy(new_scene,new_scene + sceneSize,scene);
-
-			//cout << "child A trigs num: " << index_a.size() << " , B: " << index_b.size() << endl;
-
-			if(nodes[left].depth < max_depth && nodes[left].self.length > 6) {
-				buildChild(left,max_depth,scene,sceneSize);
-			}
-			if(nodes[right].depth < max_depth && nodes[right].self.length > 6) {
-				buildChild(right,max_depth,scene,sceneSize);
-			}
-
-			cudaMemcpy(device_pointer,nodes,sizeof(node) * MAX_BVH_NODES,cudaMemcpyHostToDevice);
+	}
+	void build(const int max_depth,object* scene,const int sceneSize) {
+		nodesCount = 0;
+		int root = nodesCount++;
+		nodes[root].bounds.Min = vec3::Zero;
+		nodes[root].bounds.Max = vec3::Zero;
+		nodes[root].depth = 0;
+		nodes[root].bounds.trigCount = 0;
+		nodes[root].bounds.startIndex = 0;
+		for(int i = 0; i < sceneSize; i++) {
+			nodes[root].bounds.grow_to_include(scene[i]);
+			nodes[root].bounds.trigCount++;
 		}
-		__device__ bool castRay(int idx,const vec3& o,const vec3& d,box& box) const {
-			bool hit = false;
-			float __dist;
-			if(nodes[idx].self.intersect(o,d,__dist)) {
-				if(nodes[idx].child_nodeA == -1 && nodes[idx].child_nodeB == -1) {
-					get_back:
-					box = nodes[idx].self;
-					return true;
-				}
-				float c_dist = FLT_MAX;
-				float min_dist = FLT_MAX;
-				int hitIdx = -1;
-				for(int j = 0; j < 2; j++) { // controllo quale dei figli colpisco ed e piu vicino
-					if(nodes[idx][j] != -1) {
-						if(nodes[nodes[idx][j]].self.intersect(o,d,c_dist) && c_dist < min_dist && c_dist > 0) {
-							min_dist = c_dist;
-							hitIdx = j;
+		buildChilds(scene,sceneSize,root,max_depth);
+		cudaMalloc(&dev_nodes,sizeof(node) * nodesCount);
+		cudaMemcpy(dev_nodes,nodes,sizeof(node) * nodesCount,cudaMemcpyHostToDevice);
+
+	}
+	__device__ int castRay(const Scene* scene,const vec3& o,const vec3& d,vec3& p,vec3& n) const {
+		int stack[100]; int stackSize = 0;
+		stack[stackSize++] = 0;
+		float min_dist = FLT_MAX;
+		float current_dist = 10000;
+		int hitIdx = -1;
+		// start from root
+		while(stackSize > 0) {
+			int current_idx = stack[stackSize - 1]; stackSize--;
+
+			if(dev_nodes[current_idx].bounds.intersect(o,d)) {
+				// if leaf node, add indecies
+				if(dev_nodes[current_idx].leftChild == -1 && dev_nodes[current_idx].rightChild == -1) {
+					// iterate triangles
+					for(int i = 0; i < dev_nodes[current_idx].bounds.trigCount; i++) {
+						vec3 _p,_n;
+						if(scene->intersect(i + dev_nodes[current_idx].bounds.startIndex,o,d,_p,_n)) {
+							current_dist = (_p - o).len2();
+							if(current_dist < min_dist) {
+								p = _p,n = _n;
+								min_dist = current_dist;
+								hitIdx = i + dev_nodes[current_idx].bounds.startIndex;
+							}
 						}
 					}
 				}
-				if(hitIdx == -1) goto get_back;
-				castRay(0,o,d,box);
-			}
-			return false;
-		}
-		void convertToDevice() {
-			if(is_pointer_host) {
-				nodes = device_pointer;
-				is_pointer_host = false;
-			}
-		}
-		void convertToHost() {
-			if(!is_pointer_host) {
-				nodes = host_pointer;
-				is_pointer_host = true;
+				else {
+					// push children to stack
+					if(dev_nodes[current_idx].leftChild != -1)
+						stack[stackSize++]=(dev_nodes[current_idx].leftChild);
+					if(dev_nodes[current_idx].rightChild != -1)
+						stack[stackSize++]=(dev_nodes[current_idx].rightChild);
+					if(stackSize > 100) {
+						printf("STACK OUT OF BOUNDS\n");
+					}
+				}
 			}
 		}
+		return hitIdx;
+	}
+
+	void printNodes()
+	{
+		int current_depth = 0;
+
+		while(1) {
+			cout << endl << " ----------------- DEPTH: " << current_depth << endl;
+			int found = 0;
+			for(int i = 0; i < nodesCount; i++) {
+				if(nodes[i].depth == current_depth) {
+					found++;
+					cout << "Length: " << nodes[i].bounds.trigCount << " , childA,B: " << nodes[i].leftChild << " , " << nodes[i].rightChild << endl;
+				}
+			}
+			if(found == 0) return;
+			current_depth++;
+		}
+	}
 };

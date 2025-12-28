@@ -14,7 +14,7 @@ void handlePhysics(object* scene,const int& sceneSize) {
 					vec3 rv = b.velocity - a.velocity;
 					float velAlongNorm = dot(rv,n);
 					if(velAlongNorm > 0) return;
-					float K = -1.5 * velAlongNorm;
+					float K = -1.5f * velAlongNorm;
 					float aMass = a.b.x * a.b.x,bMass = b.b.x * b.b.x;
 					K /= (1 / aMass + 1 / bMass);
 					vec3 impulse = n * K;
@@ -35,7 +35,7 @@ void handlePhysics(object* scene,const int& sceneSize) {
 
 					float velAlongNorm = dot(sphere.velocity,-n);
 					if(velAlongNorm > 0) return;
-					float K = -1.1 * velAlongNorm;
+					float K = -1.1f * velAlongNorm;
 					float bMass = sphere.b.x * sphere.b.x;
 					K /= (1 / bMass);
 					vec3 impulse = n * K;

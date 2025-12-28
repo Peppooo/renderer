@@ -11,7 +11,6 @@ public:
 	texture* tex[MAX_OBJ];
 	vec3 velocity[MAX_OBJ];
 	vec3 t_normal[MAX_OBJ];
-	vec3 center[MAX_OBJ];
 	material mat[MAX_OBJ];
 	bool sphere[MAX_OBJ],use_tex[MAX_OBJ];
 	size_t sceneSize;
@@ -21,15 +20,14 @@ public:
 		c[sceneSize] = obj.c;
 		tex[sceneSize] = obj.tex;
 		t_normal[sceneSize] = obj.t_normal;
-		center[sceneSize] = obj.center;
 		mat[sceneSize] = obj.mat;
 		sphere[sceneSize] = obj.sphere;
 		sceneSize++;
 	}
-	__device__ __forceinline__ vec3 color(const int& idx,const vec3& p,const vec3& N,curandStatePhilox4_32_10_t* state) const {
+	__device__ __forceinline__ vec3 color(const int idx,const vec3& p,const vec3& N,curandStatePhilox4_32_10_t* state) const {
 		return tex[idx]->at(p,N,state);
 	};
-	__device__ __forceinline__ bool intersect(const int& idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
+	__device__ __forceinline__ bool intersect(const int idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere[idx])
 		{
 			vec3 v0 = c[idx] - a[idx];
@@ -85,12 +83,6 @@ public:
 		p = hit + N * epsilon;
 
 		return true;
-	}
-
-	__device__ __host__ object toObject(const int idx) const {
-		size_t __a=0;
-		object* fake_scene = new object;
-		return object(a[idx],b[idx],c[idx],fake_scene,__a,mat[idx],tex[idx],sphere[idx]);
 	}
 };
 

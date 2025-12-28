@@ -5,6 +5,7 @@
 #include <SDL2/SDL.h>
 #include <chrono>
 #include "physics.cuh"
+#include "algebra.cuh"
 
 class renderer {
 private:
@@ -14,7 +15,7 @@ private:
 	SDL_Window* sdl_window;
 	SDL_Renderer* sdl_renderer;
 	SDL_Texture* frame_texture;
-	BVH bvh;
+	bvh tree;
 	chrono::time_point<chrono::steady_clock> lastTime;
 	uint32_t* framebuffer;
 
@@ -52,6 +53,7 @@ public:
 			w,
 			h
 		);
+		cudaDeviceSetLimit(cudaLimitMallocHeapSize,1024 * 1024 * 64);
 		cudaMalloc(&d_framebuffer,sizeof(uint32_t) * w * h);
 		cudaMalloc(&scene,sizeof(Scene));
 		cudaMalloc(&lights,sizeof(vec3) * MAX_LIGHTS);
@@ -72,16 +74,12 @@ public:
 		dim3 block(8,8);
 		dim3 grid((w + block.x - 1) / block.x,(h + block.y - 1) / block.y);
 
-		bvh.convertToDevice();
 
-		render_pixel << <grid,block >> > (w,h,lights,lightsSize,scene,bvh,d_framebuffer,origin,rot,focal_length,indirect_rays,ssaa,max_reflections,n_samples_pixel,seed);
+		render_pixel<<<grid,block>>>(w,h,lights,lightsSize,scene,tree,d_framebuffer,origin,rot,focal_length,indirect_rays,ssaa,max_reflections,n_samples_pixel,seed);
 
-		bvh.convertToHost();
+		CUDA_CHECK(cudaGetLastError());
 
-		cudaError_t err = cudaGetLastError();
-		if(err != cudaSuccess) {
-			printf("Kernel error: %s\n",cudaGetErrorString(err));
-		}
+		CUDA_CHECK(cudaDeviceSynchronize());
 
 		cudaMemcpy(framebuffer,d_framebuffer,sizeof(uint32_t) * w * h,cudaMemcpyDeviceToHost);
 
@@ -91,23 +89,24 @@ public:
 		SDL_RenderPresent(sdl_renderer);
 		frame_n++;
 	}
-	void import_scene_from_host(const Scene* h_scene) {
+	void import_scene_from_host(const Scene* h_scene) const {
 		cudaMemcpy(scene,h_scene,sizeof(Scene),cudaMemcpyHostToDevice);
 	}
 
-	void import_scene_from_host_array(object* h_scene,size_t& h_sceneSize) {
+	void import_scene_from_host_array(object* h_scene,const size_t h_sceneSize) {
 		//build_scene_bounding_box(bounding,h_scene,h_sceneSize);
-		bvh.init();
-		bvh.build(15,h_scene,h_sceneSize);
+		tree.build(16,h_scene,h_sceneSize);
+		tree.printNodes();
 		Scene* h_scene_soa = new Scene;
 		h_scene_soa->sceneSize = 0;
 		for(int i = 0; i < h_sceneSize; i++) {
 			h_scene_soa->addObject(h_scene[i]);
 		}
-		import_scene_from_host(h_scene_soa);
+		CUDA_CHECK(cudaMemcpy(scene,h_scene_soa,sizeof(Scene),cudaMemcpyHostToDevice));
+		delete h_scene_soa;
 	}
-	void import_lights_from_host(const vec3* h_lights,const int& h_lightsSize) {
-		cudaMemcpy(lights,h_lights,sizeof(vec3)*lightsSize,cudaMemcpyHostToDevice);
+	void import_lights_from_host(const vec3* h_lights,const int h_lightsSize) {
+		cudaMemcpy(lights,h_lights,sizeof(vec3)*h_lightsSize,cudaMemcpyHostToDevice);
 		lightsSize = h_lightsSize;
 	}
 };

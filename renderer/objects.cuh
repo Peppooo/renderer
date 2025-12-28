@@ -15,18 +15,19 @@ public:
 	texture* tex;
 	vec3 velocity;
 	vec3 t_normal;
-	vec3 center; // IF YOU CHANGE THIS IT WILL NOT CHANGE THE CENTER OF THE SPHERE
 	bool sphere;
 	__host__ object() {};
 	__host__ object(const vec3& A,const vec3& B,const vec3& C,object* scene,size_t& sceneSize,const material& Mat,texture* Tex,bool Sphere = false):
 	a(A),b(B),c(C),mat(Mat),tex(Tex),sphere(Sphere),velocity(vec3{0,0,0})
 	{
-		center = sphere ? a : (A + B + C) / 3.0f;
 		v0 = c - a;
 		v1 = b - a;
 		t_normal = (cross(v0,v1)).norm();
 		scene[sceneSize] = *this;
 		sceneSize++;
+	}
+	vec3 center() const {
+		return (a + b + c) * 0.3333334f;
 	}
 	const vec3& operator[](const int idx) const {
 		if(idx == 0) return a;
