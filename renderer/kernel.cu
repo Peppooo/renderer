@@ -20,7 +20,8 @@ int main() {
 
 	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor.tex",vec2(0,0),vec2(0.5f,0.5f),false,799,783);
 
-	load_obj_in_host_array_scene("..\\objects\\chess.obj",(vec3{0,-2,0}),vec3{0.05,0.05,0.05},material(diffuse),white_texture,h_scene,h_sceneSize);
+	load_obj_in_host_array_scene("..\\objects\\pisello.obj",(vec3{0,-1,0}),vec3{1,1,1},material(diffuse),floor_texture,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\chess.obj",(vec3{0,-2,0}),vec3{0.05,0.05,0.05},material(diffuse),white_texture,h_scene,h_sceneSize);
 
 
 	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),red_texture);
@@ -56,8 +57,8 @@ int main() {
 	
 	while(1) {
 
-		if(Camera.frame_n % 5 == 0) {
-			cout << "frame time: " << sum_time / 5 << " ms" << endl; // average frame time out of 10
+		if(Camera.frame_n % 3 == 0) {
+			cout << "frame time: " << sum_time / 3 << " ms" << endl; // average frame time out of 10
 			sum_time = 0;
 		}
 

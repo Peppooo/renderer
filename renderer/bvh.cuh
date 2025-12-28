@@ -110,11 +110,13 @@ public:
 
 		int split_axis = max_idx(nodes[idx].bounds.Max - nodes[idx].bounds.Min);
 
-		vec3 centerSum;
+		vec3 centerSum = vec3::Zero; float weightsSum = 0;
 		for(int i = 0; i < nodes[idx].bounds.trigCount; i++) {
-			centerSum+=scene[nodes[idx].bounds.startIndex + i].center();
+			float weight = scene[nodes[idx].bounds.startIndex + i].area();
+			centerSum+=scene[nodes[idx].bounds.startIndex + i].center()*weight;
+			weightsSum += weight;
 		}
-		vec3 parentCenter = centerSum / nodes[idx].bounds.trigCount;
+		vec3 parentCenter = centerSum / weightsSum;
 		//vec3 parentCenter = nodes[idx].bounds.center();
 
 		for(int i = 0; i < nodes[idx].bounds.trigCount; i++) {
@@ -171,10 +173,11 @@ public:
 		for(int i = 0; i < nodesCount; i++) {
 			if(dev_nodes[i].leftChild == -1 && dev_nodes[i].rightChild == -1) {
 				if(dev_nodes[i].bounds.intersect(o,d)) {
-					return ;
+					return 1;
 				}
 			}
 		}
+		return -1;
 	}
 	__device__ int castRay(const Scene* scene,const vec3& o,const vec3& d,vec3& p,vec3& n) const {
 		int stack[100]; int stackSize = 0;

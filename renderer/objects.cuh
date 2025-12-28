@@ -7,7 +7,6 @@ class object {
 private:
 	vec3 v0;
 	vec3 v1;
-	float area;
 public:
 	vec3 a,b,c; // if it is a sphere a = center b.x = radius
 	vec3 d_color;
