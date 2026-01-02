@@ -39,7 +39,7 @@ public:
 	Scene* scene;
 	vec3* lights;
 
-	__host__ renderer(const int& W,const int& H,const float& Fov = M_PI_2,const int& samples_per_pixel = 1,const int& Max_reflections = 4,const int& Ssaa = 1,const int Indirect_rays=32): // rotation = {yaw,pitch}, Fov is in radians
+	__host__ renderer(const int W,const int H,const float Fov = M_PI_2,const int samples_per_pixel = 1,const int Max_reflections = 4,const int Ssaa = 1,const int Indirect_rays=32): // rotation = {yaw,pitch}, Fov is in radians
 		yaw(0),pitch(0),origin({0,0,0}),frame_n(0),frame_dt(0),w(W),h(H),fov(Fov),max_reflections(Max_reflections),ssaa(Ssaa),n_samples_pixel(samples_per_pixel),indirect_rays(Indirect_rays) {
 	}
 	__host__ void init(const char* win_name) {
@@ -91,16 +91,20 @@ public:
 	void import_scene_from_host(const Scene* h_scene) const {
 		cudaMemcpy(scene,h_scene,sizeof(Scene),cudaMemcpyHostToDevice);
 	}
-
-	void import_scene_from_host_array(object* h_scene,const size_t h_sceneSize) {
-		//build_scene_bounding_box(bounding,h_scene,h_sceneSize);
-		tree.build(20,h_scene,h_sceneSize);
-		tree.printNodes();
+	void import_scene_from_host_array(object* h_scene,const size_t h_sceneSize,const int bvh_max_depth) {
+		tree.build(bvh_max_depth,h_scene,h_sceneSize);
 		Scene* h_scene_soa = new Scene;
 		h_scene_soa->sceneSize = 0;
 		for(int i = 0; i < h_sceneSize; i++) {
 			h_scene_soa->addObject(h_scene[i]);
 		}
+		int counter = 0;
+		for(int i = 0; i < tree.nodesCount; i++) {
+			if(tree.nodes[i].leftChild == 0 && tree.nodes[i].rightChild == 0) {
+				counter += tree.nodes[i].bounds.trigCount;
+			}
+		}
+		cout << "leaf nodes primitives count: " << counter << "/" << h_scene_soa->sceneSize << endl;
 		CUDA_CHECK(cudaMemcpy(scene,h_scene_soa,sizeof(Scene),cudaMemcpyHostToDevice));
 		delete h_scene_soa;
 	}

@@ -15,16 +15,22 @@ int main() {
 	COLOR_TEXTURE(white_texture,(vec3{250,250,250}));
 	COLOR_TEXTURE(green_texture,(vec3{0,250,0}));
 	COLOR_TEXTURE(blue_texture,(vec3{0,0,250}));
+	COLOR_TEXTURE(purple_texture,(vec3{126, 34, 196}));
 	COLOR_TEXTURE(black_texture,(vec3{0,0,0}));
 	COLOR_TEXTURE(red_texture,(vec3{250,0,0}));
 
 	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor.tex",vec2(0,0),vec2(0.5f,0.5f),false,799,783);
 
-	load_obj_in_host_array_scene("..\\objects\\pisello.obj",(vec3{0,-1,0}),vec3{1,1,1},material(diffuse),floor_texture,h_scene,h_sceneSize);
-	//load_obj_in_host_array_scene("..\\objects\\chess.obj",(vec3{0,-2,0}),vec3{0.05,0.05,0.05},material(diffuse),white_texture,h_scene,h_sceneSize);
+	load_obj_in_host_array_scene("..\\objects\\dragon_high.obj",(vec3{0,0.00271,0}),vec3{10,10,-10},material(glossy,0.8f),purple_texture,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\chess.obj",(vec3{0,-2,0}),vec3{0.05,0.05,0.05},material(glossy,0.6f),white_texture,h_scene,h_sceneSize);
+	//cout << h_sceneSize << endl;
 
+	float min_y = FLT_MAX;
+	for(int i = 0; i < h_sceneSize; i++) {
+		min_y = min({min_y,h_scene[i].a.y,h_scene[i].b.y,h_scene[i].c.y});
+	}
 
-	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),red_texture);
+	/*plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),red_texture);
 
 	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(glossy,0.6f),green_texture);
 
@@ -32,7 +38,7 @@ int main() {
 
 	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.6f),white_texture);
 
-	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.7f),floor_texture);
+	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse),floor_texture);*/
 
 
 	renderer Camera(1024,1024,M_PI / 1.7f,1,1,1);
@@ -52,11 +58,10 @@ int main() {
 
 	float sum_time = 0;
 
-	Camera.import_scene_from_host_array(h_scene,h_sceneSize);
+	Camera.import_scene_from_host_array(h_scene,h_sceneSize,32);
 	Camera.import_lights_from_host(h_lights,h_lightsSize);
 	
 	while(1) {
-
 		if(Camera.frame_n % 3 == 0) {
 			cout << "frame time: " << sum_time / 3 << " ms" << endl; // average frame time out of 10
 			sum_time = 0;
@@ -72,8 +77,8 @@ int main() {
 					}
 				}
 				if(keystates[SDL_SCANCODE_H]) {
-					//hq = !hq;
-					//cudaMemcpyToSymbol(d_hq,&hq,sizeof(bool),0,cudaMemcpyHostToDevice);
+					Camera.max_reflections = 4;
+					Camera.n_samples_pixel = 128;
 				}
 			}
 			if(e.type == SDL_QUIT) {

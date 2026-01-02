@@ -98,7 +98,7 @@ void trigSphereDist(const size_t& sphereIdx,const size_t& trigIdx,float& dist,ve
 		throw "pass sphere and trig";
 	}
 	const vec3& A = scene[trigIdx].a,B = scene[trigIdx].b,C = scene[trigIdx].c;
-	const vec3& P = scene[sphereIdx].a; const float& radius = scene[sphereIdx].b.x;
+	const vec3& P = scene[sphereIdx].a; const float radius = scene[sphereIdx].b.x;
 	// Precompute edges
 	vec3 AB = B - A;
 	vec3 AC = C - A;

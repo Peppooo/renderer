@@ -3,13 +3,11 @@
 
 #define MAX_OBJ 1000000
 
-class Scene {
-public:
+struct Scene {
 	vec3 a[MAX_OBJ];
 	vec3 b[MAX_OBJ];
 	vec3 c[MAX_OBJ];
 	texture* tex[MAX_OBJ];
-	vec3 velocity[MAX_OBJ];
 	vec3 t_normal[MAX_OBJ];
 	material mat[MAX_OBJ];
 	bool sphere[MAX_OBJ],use_tex[MAX_OBJ];
@@ -33,31 +31,28 @@ public:
 			vec3 v0 = c[idx] - a[idx];
 			vec3 v1 = b[idx] - a[idx];
 			N = t_normal[idx];
-			if(dot(N,D) > 0) N = -N;
+			if(dot(N,D) > 0.0f) N = -N;
 			vec3 pvec = cross(D,v0);
 			float det = dot(v1,pvec);
 
-			// Backface culling? If you want both sides, use abs(det)
 			if(fabs(det) < epsilon) return false;
 
-			float invDet = 1.0 / det;
+			float invDet = 1.0f / det;
 
 			vec3 tvec = O - a[idx];
 			float u = dot(tvec,pvec) * invDet;
-			if(u < 0.0 || u > 1.0) return false;
+			if(u < 0.0 || u > 1.0f) return false;
 
 			vec3 qvec = cross(tvec,v1);
 			float v = dot(D,qvec) * invDet;
-			if(v < 0.0 || u + v > 1.0) return false;
+			if(v < 0.0 || u + v > 1.0f) return false;
 
 			float t = dot(v0,qvec) * invDet;
-			if(t < 0.0) return false;
+			if(t < 0.0f) return false;
 
-			// Output hit point
-			vec3 hit = O + D * t;
 
 			// OUTPUTS
-			p = hit + N * epsilon;
+			p = O + D * t + N * epsilon;
 
 			return true;
 		}
@@ -80,7 +75,7 @@ public:
 
 		if(dot(N,D) > 0) return false; // if inside no intersection
 
-		p = hit + N * epsilon;
+		p = hit + N * 1e-4f;
 
 		return true;
 	}

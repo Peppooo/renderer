@@ -26,7 +26,7 @@ private:
 	bool randomDir;
 public:
 	texture() {};
-	texture(const char* filename,const vec2& Init,const vec2& Unit,bool RandomizeDir,const int& Width,const int& Height):_texture(true),init(Init),unit(Unit),randomDir(RandomizeDir),width(Width),height(Height) {
+	texture(const char* filename,const vec2& Init,const vec2& Unit,bool RandomizeDir,const int Width,const int Height):_texture(true),init(Init),unit(Unit),randomDir(RandomizeDir),width(Width),height(Height) {
 		rgb* h_matrix = new rgb[MAX_TEX_SIZE];
 		FILE* file = fopen(filename,"rb");
 

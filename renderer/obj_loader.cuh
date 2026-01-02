@@ -43,7 +43,7 @@ __host__ void load_obj_in_host_array_scene(const char* filename,const vec3& posi
                 vertici_trig.push_back(verticies[stoi(split_indexs[0])-1]);
             }
             object(vertici_trig[0],vertici_trig[1],vertici_trig[2],scene,sceneSize,mat,tex);
-            scene[sceneSize - 1].t_normal = normal;
+            //scene[sceneSize - 1].t_normal = normal;
         }
     }
 

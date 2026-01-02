@@ -16,11 +16,11 @@ do {                                                         \
 
 using namespace std;
 
-constexpr float epsilon = 1e-3;
+constexpr float epsilon = 1e-5f;
 __device__ bool d_hq = false;
 
 
-int cycle(const int& i,const int& max) {
+int cycle(const int i,const int max) {
 	if(i == max) {
 		return 0;
 	}
@@ -36,7 +36,7 @@ struct vec3 {
 		if(i == 1) return y;
 		return z;
 	}
-	__host__ __device__ __forceinline__ const float& axis(const int i) const {
+	__host__ __device__ __forceinline__ const float axis(const int i) const {
 		if(i == 0) return x;
 		if(i == 1) return y;
 		return z;
@@ -45,7 +45,7 @@ struct vec3 {
 		return {x * scalar,y * scalar,z * scalar};
 	}
 	__host__ __device__ __forceinline__ vec3 operator*(const vec3& v) const {
-		return {x * v.x,y*v.y,z*v.z};
+		return {x * v.x,y * v.y,z * v.z};
 	}
 	__host__ __device__ __forceinline__ vec3 operator/(const float scalar) const {
 		return {x / scalar,y / scalar,z / scalar};
@@ -83,7 +83,7 @@ struct vec3 {
 	}
 	__host__ __device__ __forceinline__ vec3 norm() const {
 		float rsq = rsqrtf(x * x + y * y + z * z);
-		return *this * (rsq==0?epsilon:rsq);
+		return *this * (rsq == 0 ? epsilon : rsq);
 	}
 	__host__ __device__ uint32_t argb() const {
 		return (255 << 24) | ((unsigned char)x << 16) | ((unsigned char)y << 8) | (unsigned char)z;
@@ -91,6 +91,11 @@ struct vec3 {
 	static const vec3 One;
 	static const vec3 Zero;
 };
+
+ostream& operator<<(ostream& os,const vec3& foo) {
+	os << foo.x << " , " << foo.y << " , " << foo.z;
+	return os;
+}
 
 const vec3 vec3::One = {1,1,1};
 const vec3 vec3::Zero = {0,0,0};
@@ -169,14 +174,14 @@ __device__ vec3 randomVec(curandStatePhilox4_32_10_t* state) {
 	return {randNorm(state),randNorm(state),randNorm(state)};
 }
 
-__device__ void randomList(float* list,const int& size,curandStatePhilox4_32_10_t* state) { // fixed size to 
+__device__ void randomList(float* list,const int size,curandStatePhilox4_32_10_t* state) { // fixed size to 
 	for(int i = 0; i < size; i++) {
 		list[i] = randNorm(state);
 	}
 	return;
 }
 
-__device__ float sum(float* list,const int& size) {
+__device__ float sum(float* list,const int size) {
 	float sum = 0;
 	for(int i = 0; i < size; i++) {
 		sum += list[i];
@@ -184,7 +189,7 @@ __device__ float sum(float* list,const int& size) {
 	return sum;
 }
 
-__device__ __forceinline__ float clamp(const float& x,const float& min,const float& max) {
+__device__ __forceinline__ float clamp(const float x,const float min,const float max) {
 	return (((x) <= (min)) ? (min) : (((x) >= (max)) ? (max) : (x)));
 }
 
@@ -192,7 +197,7 @@ __device__ __forceinline__ vec3 any_perpendicular(const vec3& v) {
 	return abs(v.x) > abs(v.z) ? vec3{-v.y, v.x, 0} : vec3{0, -v.z, v.y};
 }
 
-__device__ __forceinline__ float d_min(const float& a,const float& b) {
+__device__ __forceinline__ float d_min(const float a,const float b) {
 	return a < b ? a : b;
 }
 

@@ -1,7 +1,7 @@
 #include "objects.cuh"
 #include <stdio.h>
 
-void handlePhysics(object* scene,const int& sceneSize) {
+void handlePhysics(object* scene,const int sceneSize) {
 	for(int i = 0; i < sceneSize; i++) {
 		for(int j = i+1; j < sceneSize; j++) {
 			object &a = scene[i],&b = scene[j];

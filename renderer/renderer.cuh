@@ -4,11 +4,6 @@
 #include "scene.cuh"
 #include "bvh.cuh"
 
-__device__ __forceinline__ int castRay(const Scene* scene,const bvh& tree,const vec3& O,const vec3& D,vec3& p,vec3& n) {
-	
-	return tree.castRay(scene,O,D,p,n);
-}
-
 __device__ __forceinline__ float direct_light(const vec3* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,const vec3& p,const vec3& n) { // gets illumination from the brightest of all the lights
 	float max_light_scalar = 0;
 	vec3 normalized_n = n.len2()==1?n:n.norm();
@@ -16,15 +11,14 @@ __device__ __forceinline__ float direct_light(const vec3* lights,const size_t& l
 	for(int i = 0; i < lightsSize; i++) {
 		vec3 dir_to_light = (lights[i] - p).norm();
 		float scalar = (dot(dir_to_light,normalized_n)); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
-		int objIdx = castRay(scene,tree,p,dir_to_light,pl,nl);
-		if(scalar > max_light_scalar && (objIdx==-1 || (pl - p).len2() >= (p - lights[i]).len2())) {
+		if(tree.castRayShadow(scene,p,dir_to_light,lights[i]) && scalar > max_light_scalar) {
 			max_light_scalar = scalar;
 		}
 	}
 	return max_light_scalar;
 }
 
-__device__ __forceinline__ float indirect_light(const vec3* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,const vec3& p,const vec3& n,const int& numRays,curandStatePhilox4_32_10_t* state) {
+__device__ __forceinline__ float indirect_light(const vec3* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,const vec3& p,const vec3& n,const int numRays,curandStatePhilox4_32_10_t* state) {
 	float max_scalar = 0;
 	float direct_scalar = direct_light(lights,lightsSize,scene,tree,p,n);
 	for(int i = 0; i < numRays; i++) {
@@ -51,7 +45,7 @@ __device__ __forceinline__ float indirect_light(const vec3* lights,const size_t&
 
 		vec3 surf; vec3 surf_norm;
 		
-		int objIdx = castRay(scene,tree,p,d,surf,surf_norm);
+		int objIdx = tree.castRay(scene,p,d,surf,surf_norm);
 		if(objIdx != -1) {
 			float scalar = direct_light(lights,lightsSize,scene,tree,surf,surf_norm) * direct_scalar;
 			if(scalar > max_scalar) {
@@ -71,7 +65,7 @@ __device__ __forceinline__ vec3 compute_ray(const vec3* lights,const size_t& lig
 	needs_sampling = false;
 	for(int i = 0; i < reflections; i++) {
 		vec3 p,surf_norm = {0,0,0}; // p is the intersection location
-		int objIdx = castRay(scene,tree,O,D,p,surf_norm);
+		int objIdx = tree.castRay(scene,O,D,p,surf_norm);
 		if(objIdx != -1) {
 			float scalar = direct_light(lights,lightsSize,scene,tree,p,surf_norm);
 			//if(scalar <= 0.99) {
@@ -141,10 +135,33 @@ __global__ void render_pixel(int w,int h,const vec3* lights,size_t lightsSize,co
 			}
 
 
-			ssaa_sum_sample += (pixel/n_samples_count);
+			ssaa_sum_sample += (pixel / n_samples_count);
 			ssaa_samples_count++;
 		}
 	}
 
 	data[idx] = (ssaa_sum_sample / ssaa_samples_count).argb();
+}
+
+	
+__global__ void render_pixel_debug(int w,int h,const vec3* lights,size_t lightsSize,const Scene* scene,const bvh tree,uint32_t* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed) 
+{
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int idx = (x + y * w);
+	if(idx >= w * h) return;
+	curandStatePhilox4_32_10_t state;
+	curand_init(seed,((unsigned long long)w / 8) * y + x,0,&state);
+	float i = x - w * 0.5f;
+	float j = -(y - h * 0.5f);
+	vec3 dir = rotation * vec3{i,j,focal_length}; vec3 _p,_n;
+	int triangles_checks = 0;
+	int objidx = tree.castRay(scene,origin,dir,_p,_n,&triangles_checks);
+	if(objidx != -1) {
+		//data[idx] = scene->color(objidx,_p,_n,&state).argb();
+		data[idx] = vec3{(triangles_checks > 2000) * 255.0f,255,0}.argb();
+	}
+	else {
+		data[idx] = 0;
+	}
 }

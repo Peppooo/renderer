@@ -8,61 +8,33 @@ __device__ void d_swap(float& f1,float& f2) {
 	f2 = copy;
 }
 
-class box {
-public:
+struct box {
 	vec3 Min,Max;
 	int startIndex; int trigCount;
-	vec3 center() const {
+	__host__ __device__ vec3 center() const {
 		return (Min + Max) * 0.5f;
 	}
-	__device__ bool intersect(const vec3& O,const vec3& D) const
+	float surf_area() const {
+		vec3 L = Max - Min;
+		return L.x*L.x+L.y*L.y+L.z*L.z;
+	}
+	void reset(int startIdx=0) {
+		Min = vec3::One * INFINITY;
+		Max = vec3::One * -INFINITY;
+		startIndex = startIdx;
+		trigCount = 0;
+	}
+	__device__ bool intersect(const vec3& O,const vec3& D,float& dist) const
 	{
-		float tmin = -FLT_MAX;
-		float tmax = FLT_MAX;
-
-		// X slab
-		if(D.x != 0.0f)
-		{
-			float inv = 1.0f / D.x;
-			float t0 = (Min.x - O.x) * inv;
-			float t1 = (Max.x - O.x) * inv;
-			if(t0 > t1) d_swap(t0,t1);
-			tmin = max(tmin,t0);
-			tmax = min(tmax,t1);
-		}
-		else if(O.x < Min.x || O.x > Max.x)
-			return false;
-
-		// Y slab
-		if(D.y != 0.0f)
-		{
-			float inv = 1.0f / D.y;
-			float t0 = (Min.y - O.y) * inv;
-			float t1 = (Max.y - O.y) * inv;
-			if(t0 > t1) d_swap(t0,t1);
-			tmin = max(tmin,t0);
-			tmax = min(tmax,t1);
-		}
-		else if(O.y < Min.y || O.y > Max.y)
-			return false;
-
-		// Z slab
-		if(D.z != 0.0f)
-		{
-			float inv = 1.0f / D.z;
-			float t0 = (Min.z - O.z) * inv;
-			float t1 = (Max.z - O.z) * inv;
-			if(t0 > t1) d_swap(t0,t1);
-			tmin = max(tmin,t0);
-			tmax = min(tmax,t1);
-		}
-		else if(O.z < Min.z || O.z > Max.z)
-			return false;
-
-		if(tmax < 0.0f || tmin > tmax)
-			return false;
-
-		return true;
+		vec3 invDir = 1 / D;
+		vec3 tMin = (Min - O)*invDir;
+		vec3 tMax = (Max - O) * invDir;
+		vec3 t1 = v_min(tMin,tMax);
+		vec3 t2 = v_max(tMin,tMax);
+		float dstFar = min(min(t2.x,t2.y),t2.z);
+		float dstNear = max(max(t1.x,t1.y),t1.z);
+		if(dstFar >= dstNear && dstFar > 0) { dist = dstNear; return true; };
+		return false;
 	}
 	void grow_to_include_point(const vec3& v) {
 		Max = v_max(v,Max);
@@ -73,168 +45,254 @@ public:
 		grow_to_include_point(t.b);
 		grow_to_include_point(t.c);
 	}
+	bool contain_point(const vec3& v) const {
+		return v.x<=Max.x&&v.y<=Max.y&&v.z<=Max.z&& Min.x <= v.x && Min.y <= v.y && Min.z <= v.z;
+	}
+	bool contain(const object& o) const {
+		return contain_point(o.a) && contain_point(o.b) && contain_point(o.c);
+	}
 };
 
 
 class node {
 public:
 	box bounds;
-	int leftChild = -1;
-	int rightChild = -1;
-	int depth = 0;
+	int leftChild = 0;
+	int rightChild = 0;
 };
-#define max_nodes 20000
+#define max_nodes MAX_OBJ
+
+
 
 class bvh {
 private:
 	node* dev_nodes;
 public:
 	node* nodes = new node[max_nodes];
-	int nodesCount;
-	void buildChilds(object* scene,const int sceneSize,const int idx,const int max_depth) {
-		int left = nodesCount++;
-		int right = nodesCount++;
-		nodes[idx].leftChild = left;
-		nodes[idx].rightChild = right;
+	int nodesCount=0;
+	void buildChildren(object* scene,
+		int sceneSize,
+		int idx,
+		int currentDepth,
+		int maxDepth)
+	{
+		const box& parentBounds = nodes[idx].bounds;
+		const int start = parentBounds.startIndex;
+		const int count = parentBounds.trigCount;
 
+		if(count <= 4 || currentDepth >= maxDepth)
+			return;
 
-		nodes[left].depth = nodes[idx].depth + 1;
-		nodes[right].depth = nodes[idx].depth + 1;
+		vec3 extent = parentBounds.Max - parentBounds.Min;
 
-		nodes[left].bounds.startIndex = nodes[idx].bounds.startIndex;
-		nodes[left].bounds.trigCount = 0;
-		nodes[left].bounds.Min = vec3::Zero;
-		nodes[left].bounds.Max = vec3::Zero;
+		float bestCost = INFINITY;
+		int   bestAxis = -1;
+		float bestSplitPos = 0.0f;
 
-		nodes[right].bounds = nodes[left].bounds;
+		box bestLeftBounds,bestRightBounds;
+		int bestLeftCount = 0,bestRightCount = 0;
 
-		int split_axis = max_idx(nodes[idx].bounds.Max - nodes[idx].bounds.Min);
+		for(int ax = 0; ax < 3; ax++) {
+			if(extent[ax] <= 0.0f)
+				continue;
 
-		vec3 centerSum = vec3::Zero; float weightsSum = 0;
-		for(int i = 0; i < nodes[idx].bounds.trigCount; i++) {
-			float weight = scene[nodes[idx].bounds.startIndex + i].area();
-			centerSum+=scene[nodes[idx].bounds.startIndex + i].center()*weight;
-			weightsSum += weight;
-		}
-		vec3 parentCenter = centerSum / weightsSum;
-		//vec3 parentCenter = nodes[idx].bounds.center();
+			for(int b = 1; b < 16; b++) {
+				float t = b / 16.0f;
+				float splitPos = parentBounds.Min.axis(ax) + extent[ax] * t;
 
-		for(int i = 0; i < nodes[idx].bounds.trigCount; i++) {
-			int current_idx = nodes[idx].bounds.startIndex + i;
+				box leftBox,rightBox;
+				leftBox.reset();
+				rightBox.reset();
 
-			bool goLeftChild = parentCenter[split_axis] > (scene[current_idx].center())[split_axis];
+				int leftCount = 0;
+				int rightCount = 0;
 
-			int split_side_idx = goLeftChild ? left : right;
-			nodes[split_side_idx].bounds.grow_to_include(scene[current_idx]);
+				for(int i = 0; i < count; i++) {
+					int objIdx = start + i;
+					float c = scene[objIdx].center()[ax];
 
-			if(goLeftChild) {
-				int target_idx = nodes[split_side_idx].bounds.startIndex + nodes[split_side_idx].bounds.trigCount;
-				swap(scene[current_idx],scene[target_idx]);
+					if(c < splitPos) {
+						leftBox.grow_to_include(scene[objIdx]);
+						leftCount++;
+					}
+					else {
+						rightBox.grow_to_include(scene[objIdx]);
+						rightCount++;
+					}
+				}
 
-				nodes[right].bounds.startIndex++;
+				if(leftCount == 0 || rightCount == 0)
+					continue;
+
+				float cost =
+					leftBox.surf_area() * leftCount +
+					rightBox.surf_area() * rightCount;
+
+				if(cost < bestCost) {
+					bestCost = cost;
+					bestAxis = ax;
+					bestSplitPos = splitPos;
+					bestLeftBounds = leftBox;
+					bestRightBounds = rightBox;
+					bestLeftCount = leftCount;
+					bestRightCount = rightCount;
+				}
 			}
-
-
-			nodes[split_side_idx].bounds.trigCount++;
-
 		}
 
+		if(bestAxis == -1) 
+			return;
 
-		if(nodes[idx].depth < max_depth && nodesCount < (max_nodes - 3)) {
-			if(nodes[left].bounds.trigCount > 6) {
-				buildChilds(scene,sceneSize,left,max_depth);
+		int leftChild = nodesCount++;
+		int rightChild = nodesCount++;
+
+		nodes[idx].leftChild = leftChild;
+		nodes[idx].rightChild = rightChild;
+
+		int i = start;
+		int j = start + count - 1;
+
+		while(i <= j) {
+			if(scene[i].center()[bestAxis] < bestSplitPos) {
+				i++;
 			}
-			if(nodes[right].bounds.trigCount > 6) {
-				buildChilds(scene,sceneSize,right,max_depth);
-
+			else {
+				swap(scene[i],scene[j]);
+				j--;
 			}
-
 		}
 
+		nodes[leftChild].bounds = bestLeftBounds;
+		nodes[leftChild].bounds.startIndex = start;
+		nodes[leftChild].bounds.trigCount = bestLeftCount;
+
+		nodes[rightChild].bounds = bestRightBounds;
+		nodes[rightChild].bounds.startIndex = start + bestLeftCount;
+		nodes[rightChild].bounds.trigCount = bestRightCount;
+
+		// === Recurse ===
+		if(nodesCount < max_nodes - 2) {
+			buildChildren(scene,sceneSize,leftChild,
+				currentDepth + 1,maxDepth);
+			buildChildren(scene,sceneSize,rightChild,
+				currentDepth + 1,maxDepth);
+		}
+		else {
+			cout << "BVH building stopped by nodes out of bounds" << endl;
+		}
 	}
 	void build(const int max_depth,object* scene,const int sceneSize) {
 		nodesCount = 0;
 		int root = nodesCount++;
 		nodes[root].bounds.Min = vec3::Zero;
 		nodes[root].bounds.Max = vec3::Zero;
-		nodes[root].depth = 0;
 		nodes[root].bounds.trigCount = 0;
 		nodes[root].bounds.startIndex = 0;
 		for(int i = 0; i < sceneSize; i++) {
 			nodes[root].bounds.grow_to_include(scene[i]);
 			nodes[root].bounds.trigCount++;
 		}
-		buildChilds(scene,sceneSize,root,max_depth);
+		cout << "building bvh structure.." << endl;
+		buildChildren(scene,sceneSize,root,0,max_depth);
 		cudaMalloc(&dev_nodes,sizeof(node) * nodesCount);
 		cudaMemcpy(dev_nodes,nodes,sizeof(node) * nodesCount,cudaMemcpyHostToDevice);
-
 	}
-	__device__ int castRayBox(const vec3& o,const vec3& d) {
-		for(int i = 0; i < nodesCount; i++) {
-			if(dev_nodes[i].leftChild == -1 && dev_nodes[i].rightChild == -1) {
-				if(dev_nodes[i].bounds.intersect(o,d)) {
-					return 1;
-				}
-			}
-		}
-		return -1;
-	}
-	__device__ int castRay(const Scene* scene,const vec3& o,const vec3& d,vec3& p,vec3& n) const {
-		int stack[100]; int stackSize = 0;
+	__device__ int castRay(const Scene* scene,const vec3& o,const vec3& d,vec3& p,vec3& n,int* debug=nullptr) const {
+		int stack[64]; int stackSize = 0;
 		stack[stackSize++] = 0;
-		float min_dist = FLT_MAX;
-		float current_dist = 10000;
+		float min_dist = INFINITY;
+		float current_dist = INFINITY;
 		int hitIdx = -1;
+		if(debug) *debug = 0;
 		// start from root
 		while(stackSize > 0) {
-			int current_idx = stack[stackSize - 1]; stackSize--;
-
-			if(dev_nodes[current_idx].bounds.intersect(o,d)) {
-				// if leaf node, add indecies
-				if(dev_nodes[current_idx].leftChild == -1 && dev_nodes[current_idx].rightChild == -1) {
-					// iterate triangles
-					for(int i = 0; i < dev_nodes[current_idx].bounds.trigCount; i++) {
-						vec3 _p,_n;
-						if(scene->intersect(i + dev_nodes[current_idx].bounds.startIndex,o,d,_p,_n)) {
-							current_dist = (_p - o).len2();
-							if(current_dist < min_dist) {
-								p = _p,n = _n;
-								min_dist = current_dist;
-								hitIdx = i + dev_nodes[current_idx].bounds.startIndex;
-							}
+			stackSize--;
+			const node current_node = dev_nodes[stack[stackSize]];
+			// if leaf node, add indecies
+			if(current_node.leftChild == 0 && current_node.rightChild == 0) {
+				// iterate triangles
+				for(int i = 0; i < current_node.bounds.trigCount; i++) {
+					vec3 _p,_n;
+					if(debug) (*debug)++;
+					if(scene->intersect(i + current_node.bounds.startIndex,o,d,_p,_n)) {
+						current_dist = (_p - o).len2();
+						if(current_dist < min_dist) {
+							p = _p,n = _n;
+							min_dist = current_dist;
+							hitIdx = i + current_node.bounds.startIndex;
 						}
 					}
 				}
+			}
+			else {
+				// push children to stack
+				float distLeft,distRight;
+				bool hitLeft = dev_nodes[current_node.leftChild].bounds.intersect(o,d,distLeft);
+				bool hitRight = dev_nodes[current_node.rightChild].bounds.intersect(o,d,distRight);
+				distLeft = distLeft * distLeft;
+				distRight = distRight * distRight;
+
+				if(distLeft < distRight) {
+					if(hitLeft && distLeft < min_dist) stack[stackSize++] = current_node.leftChild;
+					if(hitRight && distRight < min_dist) stack[stackSize++] = current_node.rightChild;
+				}
 				else {
-					// push children to stack
-					if(dev_nodes[current_idx].leftChild != -1)
-						stack[stackSize++]=(dev_nodes[current_idx].leftChild);
-					if(dev_nodes[current_idx].rightChild != -1)
-						stack[stackSize++]=(dev_nodes[current_idx].rightChild);
-					if(stackSize > 100) {
-						printf("STACK OUT OF BOUNDS\n");
-					}
+					if(hitRight && distRight < min_dist) stack[stackSize++] = current_node.rightChild;
+					if(hitLeft && distLeft < min_dist) stack[stackSize++] = current_node.leftChild;
 				}
 			}
 		}
 		return hitIdx;
 	}
+	__device__ bool castRayShadow(const Scene* scene,const vec3& o,const vec3& d,const vec3& L) const {
+		int stack[64]; int stackSize = 0;
+		stack[stackSize++] = 0;
+		float min_dist = INFINITY;
+		float current_dist = INFINITY;
+		// start from root
+		float max_dist = (o - L).len();
+		while(stackSize > 0) {
+			int current_idx = stack[stackSize - 1]; stackSize--;
+			float bound_dist = 0;
+			if(dev_nodes[current_idx].bounds.intersect(o,d,bound_dist) && bound_dist < max_dist) {
+				// if leaf node, add indecies
+				if(dev_nodes[current_idx].leftChild == 0 && dev_nodes[current_idx].rightChild == 0) {
+					// iterate triangles
+					for(int i = 0; i < dev_nodes[current_idx].bounds.trigCount; i++) {
+						vec3 _p,_n;
+						if(scene->intersect(i + dev_nodes[current_idx].bounds.startIndex,o,d,_p,_n) && (_p - o).len() < max_dist) {
+							return false;
+						}
+					}
+				}
+				else {
+					// push children to stack
+					if((dev_nodes[dev_nodes[current_idx].leftChild].bounds.center() - o).len2() < (dev_nodes[dev_nodes[current_idx].rightChild].bounds.center() - o).len2()) {
+						if(dev_nodes[current_idx].leftChild != 0)
+							stack[stackSize++] = (dev_nodes[current_idx].leftChild);
+						if(dev_nodes[current_idx].rightChild != 0)
+							stack[stackSize++] = (dev_nodes[current_idx].rightChild);
+					}
+					else {
+						if(dev_nodes[current_idx].rightChild != 0)
+							stack[stackSize++] = (dev_nodes[current_idx].leftChild);
+						if(dev_nodes[current_idx].leftChild != 0)
+							stack[stackSize++] = (dev_nodes[current_idx].rightChild);
+					}
+
+				}
+			}
+		}
+		return true;
+	}
 
 	void printNodes()
 	{
-		int current_depth = 0;
 
-		while(1) {
-			cout << endl << " ----------------- DEPTH: " << current_depth << endl;
-			int found = 0;
-			for(int i = 0; i < nodesCount; i++) {
-				if(nodes[i].depth == current_depth) {
-					found++;
-					cout << "Length: " << nodes[i].bounds.trigCount << " , childA,B: " << nodes[i].leftChild << " , " << nodes[i].rightChild << endl;
-				}
+		for(int i = 0; i < nodesCount; i++) {
+			if(nodes[i].leftChild == 0 && nodes[i].rightChild == 0) {
+				cout << "Length: " << nodes[i].bounds.trigCount << " , childA,B: " << nodes[i].leftChild << " , " << nodes[i].rightChild << endl;
 			}
-			if(found == 0) return;
-			current_depth++;
 		}
 	}
 };
