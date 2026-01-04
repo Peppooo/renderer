@@ -17,7 +17,6 @@ for y in range(height):
     for x in range(width):
         r, g, b = img.getpixel((x, y))
         # Do something with the pixel values
-        print(f"Pixel at ({x},{y}): R={r}, G={g}, B={b}")
         data.append(r)
         data.append(g)
         data.append(b)

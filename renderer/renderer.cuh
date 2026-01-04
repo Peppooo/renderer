@@ -69,13 +69,14 @@ __device__ __forceinline__ vec3 compute_ray(const vec3* lights,const size_t& lig
 		if(objIdx != -1) {
 			float scalar = direct_light(lights,lightsSize,scene,tree,p,surf_norm);
 			//if(scalar <= 0.99) {
-			//	scalar = max(scalar,indirect_light(lights,lightsSize,scene,p,surf_norm,rlRays,state));
+			//	scalar = max(scalar,indirect_light(lights,lightsSize,scene,tree,p,surf_norm,rlRays,state));
 			//}
 
 			if(scalar>epsilon) { // if the surface before isnt lit then dont add anything
 				needs_sampling = needs_sampling || scene->mat[objIdx].needs_sampling();
 				done_reflections++;
-				color += (scene->color(objIdx,p,surf_norm,state) * scalar);
+				//vec3 non_mapped_norm = scene.t_normal[objidx];
+				color += (scene->color(objIdx,p) * scalar);
 				if(i < reflections) { // if its not the last reflection or triangle hit not reflective
 					O = p;
 					D = scene->mat[objIdx].bounce(O,surf_norm,state);

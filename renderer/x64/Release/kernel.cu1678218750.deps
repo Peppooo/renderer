@@ -195,6 +195,7 @@ C:\Users\pietr\source\repos\renderer\renderer\algebra.cuh
 C:\Users\pietr\source\repos\renderer\renderer\bvh.cuh
 C:\Users\pietr\source\repos\renderer\renderer\engine.cuh
 C:\Users\pietr\source\repos\renderer\renderer\material.cuh
+C:\Users\pietr\source\repos\renderer\renderer\normal.cuh
 C:\Users\pietr\source\repos\renderer\renderer\objects.cuh
 C:\Users\pietr\source\repos\renderer\renderer\obj_loader.cuh
 C:\Users\pietr\source\repos\renderer\renderer\physics.cuh

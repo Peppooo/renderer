@@ -16,20 +16,22 @@ __host__ vector<string> split_string(const string& s,const char div) {
     return split;
 }
 
-__host__ void load_obj_in_host_array_scene(const char* filename,const vec3& position,const vec3& scaling,const material& mat,texture* tex,object* scene,size_t& sceneSize) {
+__host__ void load_obj_in_host_array_scene(const char* filename,const vec3& position,const vec3& scaling,const material& mat,texture* tex,normal* norm,object* scene,size_t& sceneSize) {
 	vector<vec3> verticies; 
     vector<vec3> normals;
     ifstream file(filename);// here i will use fstream since its easier to use for reading line by line obj files
 
     if(!file) printf("Error opening file");
-
+    vec3 obj_min = vec3::One * INFINITY; vec3 obj_max = vec3::One * -INFINITY;
     string line;
     while(getline(file,line)) {
 
         vector<string> split_space = split_string(line,' ');
         
         if(split_space[0] == "v") {
-            verticies.push_back(position + (vec3{stof(split_space[1]),stof(split_space[2]),stof(split_space[3])}*scaling));
+            verticies.push_back(vec3{stof(split_space[1]),stof(split_space[2]),stof(split_space[3])});
+            obj_min = v_min(obj_min,verticies.back());
+            obj_max = v_max(obj_max,verticies.back());
         }
         else if(split_space[0] == "vn") {
             normals.push_back({stof(split_space[1]),stof(split_space[2]),stof(split_space[3])});
@@ -40,9 +42,10 @@ __host__ void load_obj_in_host_array_scene(const char* filename,const vec3& posi
             for(int i = 1; i < 4; i++) {
                 vector<string> split_indexs = split_string(split_space[i],'/');
                 if(i==1)  normal = normals[stoi(split_indexs[2])-1];
-                vertici_trig.push_back(verticies[stoi(split_indexs[0])-1]);
+                vertici_trig.push_back(position+(verticies[stoi(split_indexs[0])-1])-obj_min);
             }
-            object(vertici_trig[0],vertici_trig[1],vertici_trig[2],scene,sceneSize,mat,tex);
+
+            object(vertici_trig[0],vertici_trig[1],vertici_trig[2],scene,sceneSize,mat,tex,norm,false);
             //scene[sceneSize - 1].t_normal = normal;
         }
     }

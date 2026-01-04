@@ -2,6 +2,7 @@
 #include "algebra.cuh"
 #include "material.cuh"
 #include "texture.cuh"
+#include "normal.cuh"
 
 class object { 
 private:
@@ -12,12 +13,13 @@ public:
 	vec3 d_color;
 	material mat;
 	texture* tex;
-	vec3 velocity;
+	normal* norm;
 	vec3 t_normal;
+	vec3 velocity;
 	bool sphere;
 	__host__ object() {};
-	__host__ object(const vec3& A,const vec3& B,const vec3& C,object* scene,size_t& sceneSize,const material& Mat,texture* Tex,bool Sphere = false):
-	a(A),b(B),c(C),mat(Mat),tex(Tex),sphere(Sphere),velocity(vec3{0,0,0})
+	__host__ object(const vec3& A,const vec3& B,const vec3& C,object* scene,size_t& sceneSize,const material& Mat,texture* Tex,normal* Norm,bool Sphere = false):
+	a(A),b(B),c(C),mat(Mat),tex(Tex),norm(Norm),sphere(Sphere),velocity(vec3{0,0,0})
 	{
 		v0 = c - a;
 		v1 = b - a;
@@ -47,7 +49,7 @@ public:
 	}
 };
 
-__host__ void plane(vec3 a,vec3 b,vec3 c,vec3 d,object* scene,size_t& sceneSize,material mat,texture* tex) { // only works for a square for now
+__host__ void plane(vec3 a,vec3 b,vec3 c,vec3 d,object* scene,size_t& sceneSize,material mat,texture* tex,normal* norm) { // only works for a square for now
 	vec3 points[4] = {a,b,c,d};
 	int perpPointIdx = -1;
 	float maxDist = -1;
@@ -59,38 +61,29 @@ __host__ void plane(vec3 a,vec3 b,vec3 c,vec3 d,object* scene,size_t& sceneSize,
 		};
 	}
 	swap(points[2],points[perpPointIdx]);
-	object(points[0],points[1],points[3],scene,sceneSize,mat,tex,false);
-	object(points[2],points[1],points[3],scene,sceneSize,mat,tex,false);
+	object(points[0],points[1],points[3],scene,sceneSize,mat,tex,norm,false);
+	object(points[2],points[1],points[3],scene,sceneSize,mat,tex,norm,false);
 }
 
-__host__ void cube(vec3 edge,float lx,float ly,float lz,object* scene,size_t& sceneSize,material mat,texture* tex) {
-	object(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},scene,sceneSize,mat,tex,false);
-	object(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{lx,0,0},scene,sceneSize,mat,tex,false);
-	object(edge,edge + vec3{0,0,lz},edge + vec3{0,ly,0},scene,sceneSize,mat,tex,false);
-	object(edge + vec3{0,0,lz},edge + vec3{0,ly,lz},edge + vec3{0,ly,0},scene,sceneSize,mat,tex,false);
-	object(edge + vec3{lx,0,lz},edge + vec3{lx,ly,lz},edge + vec3{lx,0,0},scene,sceneSize,mat,tex,false);
-	object(edge + vec3{lx,0,0},edge + vec3{lx,ly,0},edge + vec3{lx,ly,lz},scene,sceneSize,mat,tex,false);
-	object(edge + vec3{lx,0,lz},edge + vec3{0,0,lz},edge + vec3{lx,ly,lz},scene,sceneSize,mat,tex,false);
-	object(edge + vec3{lx,ly,lz},edge + vec3{0,ly,lz},edge + vec3{0,0,lz},scene,sceneSize,mat,tex,false);
+__host__ void cube(vec3 edge,float lx,float ly,float lz,object* scene,size_t& sceneSize,material mat,texture* tex,normal* norm) {
+	object(edge,edge + vec3{lx,0,0},edge + vec3{0,ly,0},scene,sceneSize,mat,tex,norm,false);
+	object(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{lx,0,0},scene,sceneSize,mat,tex,norm,false);
+	object(edge,edge + vec3{0,0,lz},edge + vec3{0,ly,0},scene,sceneSize,mat,tex,norm,false);
+	object(edge + vec3{0,0,lz},edge + vec3{0,ly,lz},edge + vec3{0,ly,0},scene,sceneSize,mat,tex,norm,false);
+	object(edge + vec3{lx,0,lz},edge + vec3{lx,ly,lz},edge + vec3{lx,0,0},scene,sceneSize,mat,tex,norm,false);
+	object(edge + vec3{lx,0,0},edge + vec3{lx,ly,0},edge + vec3{lx,ly,lz},scene,sceneSize,mat,tex,norm,false);
+	object(edge + vec3{lx,0,lz},edge + vec3{0,0,lz},edge + vec3{lx,ly,lz},scene,sceneSize,mat,tex,norm,false);
+	object(edge + vec3{lx,ly,lz},edge + vec3{0,ly,lz},edge + vec3{0,0,lz},scene,sceneSize,mat,tex,norm,false);
 
-	object(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},scene,sceneSize,mat,tex,false);
-	object(edge + vec3{0,0,0},edge + vec3{lx,0,0},edge + vec3{0,0,lz},scene,sceneSize,mat,tex,false);
-	object(edge + vec3{lx,0,lz},edge + vec3{lx,0,0},edge + vec3{0,0,lz},scene,sceneSize,mat,tex,false);
-	object(edge + vec3{lx,ly,lz},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},scene,sceneSize,mat,tex,false);
+	object(edge + vec3{0,ly,0},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},scene,sceneSize,mat,tex,norm,false);
+	object(edge + vec3{0,0,0},edge + vec3{lx,0,0},edge + vec3{0,0,lz},scene,sceneSize,mat,tex,norm,false);
+	object(edge + vec3{lx,0,lz},edge + vec3{lx,0,0},edge + vec3{0,0,lz},scene,sceneSize,mat,tex,norm,false);
+	object(edge + vec3{lx,ly,lz},edge + vec3{lx,ly,0},edge + vec3{0,ly,lz},scene,sceneSize,mat,tex,norm,false);
 	//a little bit hard coded but i dont care its good (maybe i could have made a box intersection function or do this automatically
 }
 
-enum faces {
-	front,
-	back,
-	left,
-	right,
-	top,
-	bottom
-};
-
-__host__ void sphere(vec3 center,float radius,object* scene,size_t& sceneSize,material mat,texture* tex) {
-	object(center,vec3{radius,0.0f,0.0f},vec3{0.0f,0.0f,0.0f},scene,sceneSize,mat,tex,true);
+__host__ inline void sphere(vec3 center,float radius,object* scene,size_t& sceneSize,material mat,texture* tex,normal* norm) {
+	object(center,vec3{radius,0.0f,0.0f},vec3{0.0f,0.0f,0.0f},scene,sceneSize,mat,tex,norm,true);
 }
 
 void trigSphereDist(const size_t& sphereIdx,const size_t& trigIdx,float& dist,vec3& surf,object* scene) { // idx1 == trig

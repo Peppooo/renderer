@@ -3,6 +3,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <curand_kernel.h>
+#include <iostream>
 
 #define CUDA_CHECK(call)                                     \
 do {                                                         \
@@ -16,7 +17,7 @@ do {                                                         \
 
 using namespace std;
 
-constexpr float epsilon = 1e-5f;
+constexpr float epsilon = 1e-6f;
 __device__ bool d_hq = false;
 
 

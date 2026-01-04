@@ -4,11 +4,14 @@
 #define MAX_OBJ 1000000
 
 struct Scene {
+private:
+	vec3 t_normal[MAX_OBJ];
+public:
 	vec3 a[MAX_OBJ];
 	vec3 b[MAX_OBJ];
 	vec3 c[MAX_OBJ];
 	texture* tex[MAX_OBJ];
-	vec3 t_normal[MAX_OBJ];
+	normal* norm[MAX_OBJ];
 	material mat[MAX_OBJ];
 	bool sphere[MAX_OBJ],use_tex[MAX_OBJ];
 	size_t sceneSize;
@@ -19,11 +22,12 @@ struct Scene {
 		tex[sceneSize] = obj.tex;
 		t_normal[sceneSize] = obj.t_normal;
 		mat[sceneSize] = obj.mat;
+		norm[sceneSize] = obj.norm;
 		sphere[sceneSize] = obj.sphere;
 		sceneSize++;
 	}
-	__device__ __forceinline__ vec3 color(const int idx,const vec3& p,const vec3& N,curandStatePhilox4_32_10_t* state) const {
-		return tex[idx]->at(p,N,state);
+	__device__ __forceinline__ vec3 color(const int idx,const vec3& p) const {
+		return tex[idx]->at(p,t_normal[idx]);
 	};
 	__device__ __forceinline__ bool intersect(const int idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere[idx])
@@ -50,9 +54,9 @@ struct Scene {
 			float t = dot(v0,qvec) * invDet;
 			if(t < 0.0f) return false;
 
-
 			// OUTPUTS
-			p = O + D * t + N * epsilon;
+			p = O + D * t + N * 1e-4f;
+			N = norm[idx]->at(p,N);
 
 			return true;
 		}
@@ -76,6 +80,8 @@ struct Scene {
 		if(dot(N,D) > 0) return false; // if inside no intersection
 
 		p = hit + N * 1e-4f;
+
+		N = norm[idx]->at(p,N);
 
 		return true;
 	}
