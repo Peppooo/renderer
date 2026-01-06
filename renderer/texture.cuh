@@ -52,8 +52,8 @@ public:
 		delete[] h_matrix; // ATTENTO DIO PORCOOOOOOOOOOOOOOOOOO
 	};
 	texture(vec3 Color = {0,0,0}):_texture(false),color(Color) {};
-	void import_norm_mapping(const char* filename) {
-		
+	~texture() {
+		cudaFree(matrix);
 	}
 	__device__ vec3 at(const vec3& p,const vec3& N) const {
 		if(!_texture) {
@@ -67,7 +67,7 @@ public:
 		if(x >= 1) x = 0.99f;
 		if(y >= 1) y = 0.99f;
 		int idx = (floor(y * height)) * width + floor(x * width);
-		return matrix[idx].toVec3();
+		return matrix[idx].toVec3() * (1.0f / 255);
 	}
 };
 

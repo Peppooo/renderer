@@ -10,50 +10,50 @@ using namespace std;
 int main() {
 	// scene infos
 	object* h_scene = new object[MAX_OBJ]; size_t h_sceneSize = 0; // scene size calculated step by step 
-	vec3 h_lights[1] = {{0,1,0}}; int h_lightsSize = 1;
+	light h_lights[1] = {light{{0,1,0},{1,1,1},1}}; int h_lightsSize = 1;
 
-	COLOR_TEXTURE(white_texture,(vec3{250,250,250}));
-	COLOR_TEXTURE(green_texture,(vec3{0,250,0}));
-	COLOR_TEXTURE(blue_texture,(vec3{0,0,250}));
-	COLOR_TEXTURE(purple_texture,(vec3{126, 34, 196}));
+	COLOR_TEXTURE(white_texture,(vec3{1,1,1}));
+	COLOR_TEXTURE(green_texture,(vec3{0,1,0}));
+	COLOR_TEXTURE(blue_texture,(vec3{0,0,1}));
+	COLOR_TEXTURE(purple_texture,(vec3{126/255.0f, 34/255.0f, 196/255.0f}));
 	COLOR_TEXTURE(black_texture,(vec3{0,0,0}));
-	COLOR_TEXTURE(red_texture,(vec3{250,0,0}));
+	COLOR_TEXTURE(red_texture,(vec3{1,0,0}));
 
-	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor.tex",vec2(0,0),vec2(0.5f,0.5f),799,783); // all these imports are allocated on the device memory
+	//IMPORT_TEXTURE(floor_texture,"..\\textures\\floor.bin",vec2(0,0),vec2(0.5f,0.5f),799,783); // all these imports are allocated on the device memory
 
-	IMPORT_TEXTURE(example_texture,"..\\textures\\ex_tex.tex",vec2(0,0),vec2(1.0f,1.0f),2048,2048);
-	IMPORT_NORMAL_MAP(example_norm_map,"..\\textures\\ex_norm.tex",2048,2048);
-	IMPORT_NORMAL_MAP(example2_norm_map,"..\\textures\\example.tex",300,300);
+	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor\\tex.bin",vec2(0,0),vec2(0.125f,0.125f),2048,2048);
+	IMPORT_NORMAL_MAP(floor_norm_map,"..\\textures\\floor\\norm.bin",vec2(0,0),vec2(0.125f,0.125f),2048,2048);
 	DEFAULT_NORMAL_MAP(default_norm_map);
 	
 
 	//cube({0,0,0},1,1,1,h_scene,h_sceneSize,material(diffuse),white_texture,map);
 
-	plane({-1,-1,-1},{1,-1,-1},{1,-1,1},{-1,-1,1},h_scene,h_sceneSize,material(glossy,0.7f),example_texture,example_norm_map);
+	//plane({-1,-1,-1},{1,-1,-1},{1,-1,1},{-1,-1,1},h_scene,h_sceneSize,material(glossy,0.7f),example_texture,example_norm_map);
 	
-	plane({2,-1,-1},{4,-1,-1},{4,-1,1},{2,-1,1},h_scene,h_sceneSize,material(glossy,0.7f),example_texture,default_norm_map);
+	//plane({2,-1,-1},{4,-1,-1},{4,-1,1},{2,-1,1},h_scene,h_sceneSize,material(glossy,0.7f),example_texture,default_norm_map);
 
+	//cube({0,0,0},1,1,1,h_scene,h_sceneSize,material(diffuse),floor_texture,floor_norm_map);
 
-	//load_obj_in_host_array_scene("..\\objects\\sponza.obj",(vec3{-1,-2,-1}),vec3{10,10,-10},material(glossy,0.7f),white_texture,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\sponza.obj",(vec3{-1,-2,-1}),vec3{10,10,-10},material(glossy,0.7f),white_texture,default_norm_map,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\chess.obj",(vec3{0,-2,0}),vec3{0.05,0.05,0.05},material(glossy,0.6f),white_texture,h_scene,h_sceneSize);
-	//cout << h_sceneSize << endl;
+	//load_obj_in_host_array_scene("..\\objects\\dragon_high.obj",{-0.5,-0.5,-1},{10,10,-10},material(diffuse,0.7f),purple_texture,default_norm_map,h_scene,h_sceneSize);
 	
-	/*plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(glossy,0.7f),red_texture,default_norm_map);
+	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(specular,0.7f),red_texture,default_norm_map);
 
-	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(glossy,0.7f),green_texture,default_norm_map);
+	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(diffuse,0.7f),green_texture,default_norm_map);
 
-	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse),white_texture,default_norm_map);
+	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse,0.7f),white_texture,default_norm_map);
 
-	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.76f),white_texture,default_norm_map);
+	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse,0.7f),white_texture,default_norm_map);
 
-	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(glossy,0.7f),white_texture,default_norm_map);
+	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(diffuse,0.7f),white_texture,default_norm_map);
 	
-	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(glossy,0.8f),example_texture,example2_norm_map);*/
+	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse),floor_texture,floor_norm_map);
 
 	renderer Camera(1024,1024,M_PI / 1.5f,1,1,1);
 
 	Camera.init("renderer");
-	Camera.origin = vec3{0,0,-5};
+	Camera.origin = vec3{0,0,0};
 	Camera.max_reflections = 1;
 	Camera.n_samples_pixel = 1;
 	Camera.ssaa = 1;
@@ -89,7 +89,7 @@ int main() {
 				if(keystates[SDL_SCANCODE_H]) {
 					Camera.max_reflections = 4;
 					Camera.n_samples_pixel*=2;
-					Camera.ssaa = 4;
+					//Camera.ssaa = 4;
 					//Camera.fov = M_PI_4;
 				}
 			}
@@ -130,7 +130,7 @@ int main() {
 				Camera.origin += rotation(0,0,Camera.yaw) * move.norm() * curr_move_speed * Camera.frame_dt;
 			}
 			else {
-				h_lights[current_light_index] = h_lights[current_light_index] + move.norm() * curr_move_speed * Camera.frame_dt;
+				h_lights[current_light_index].pos = h_lights[current_light_index].pos + move.norm() * curr_move_speed * Camera.frame_dt;
 				Camera.import_lights_from_host(h_lights,h_lightsSize);
 			}
 		}

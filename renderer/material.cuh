@@ -18,8 +18,9 @@ class material {
 public:
 	material_type type;
 	float shininess;
+	float emission;
 	material() {};
-	material(material_type Type,float Shininess = 0): type(Type),shininess(Shininess) {};
+	material(material_type Type,float Shininess = 0,float Emission = 0): type(Type),emission(Emission),shininess(Shininess) {};
 	__device__ bool needs_sampling() const {
 		return type == glossy;
 	}
@@ -51,6 +52,35 @@ public:
 			}
 			return result;
 		}
+		else if(type==diffuse) {
+			float r1 = curand_uniform(state);
+			float r2 = curand_uniform(state);
+
+			float phi = 2.0f * M_PI * r1;
+			float r = sqrt(r2);
+
+			float x = r * cos(phi);
+			float y = r * sin(phi);
+			float z = sqrt(1.0f - r2);
+
+			vec3 t = any_perpendicular(n);
+			vec3 b = cross(t,n);
+			
+			return (t*x + b*y + n*z);
+		}
 		return vec3{0,0,0};
+	}
+	__device__ __forceinline__ vec3 brdf(const vec3& wo,const vec3& n,vec3& wi,const vec3& albedo,float& pdf,bool& delta,curandStatePhilox4_32_10_t* state) const {
+		wi = bounce(wo,n,state);
+		if(type == specular) {
+			delta = true;
+			pdf = 1;
+			return albedo;
+		}
+		if(type == diffuse) {
+			delta = false;
+			pdf = dot(n,wi) / M_PI;
+			return albedo/M_PI;
+		}
 	}
 };

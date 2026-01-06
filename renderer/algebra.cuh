@@ -5,6 +5,8 @@
 #include <curand_kernel.h>
 #include <iostream>
 
+#define clamp(x,min,max) (((x) < (min)) ? (min) : (((x) > (max)) ? (max) : (x)))
+
 #define CUDA_CHECK(call)                                     \
 do {                                                         \
     cudaError_t err = call;                                  \
@@ -86,8 +88,15 @@ struct vec3 {
 		float rsq = rsqrtf(x * x + y * y + z * z);
 		return *this * (rsq == 0 ? epsilon : rsq);
 	}
+	__host__ __device__ vec3 to255() const {
+		if(x > 200 || y > 200 || z > 200) {
+			printf("COLOR EXPRESSED IN 255 RGB %d\n");
+		}
+		return vec3{clamp(x,0,1),clamp(y,0,1),clamp(z,0,1)}*255.0f;
+	}
 	__host__ __device__ uint32_t argb() const {
-		return (255 << 24) | ((unsigned char)x << 16) | ((unsigned char)y << 8) | (unsigned char)z;
+		vec3 t = to255();
+		return (255 << 24) | ((unsigned char)t.x << 16) | ((unsigned char)t.y << 8) | (unsigned char)t.z;
 	}
 	static const vec3 One;
 	static const vec3 Zero;
@@ -98,8 +107,8 @@ ostream& operator<<(ostream& os,const vec3& foo) {
 	return os;
 }
 
-const vec3 vec3::One = {1,1,1};
-const vec3 vec3::Zero = {0,0,0};
+constexpr vec3 vec3::One = {1,1,1};
+constexpr vec3 vec3::Zero = {0,0,0};
 
 __host__ __device__ __forceinline__ vec3 operator/(const float a,const vec3& v) {
 	return vec3{a / v.x,a / v.y,a / v.z};
@@ -167,7 +176,7 @@ matrix rotation(const float yaw,const float pitch,const float roll)
 
 
 __device__ float randNorm(curandStatePhilox4_32_10_t* state) {
-	return curand_uniform_double(state);
+	return curand_uniform(state);
 }
 
 
@@ -188,10 +197,6 @@ __device__ float sum(float* list,const int size) {
 		sum += list[i];
 	}
 	return sum;
-}
-
-__device__ __forceinline__ float clamp(const float x,const float min,const float max) {
-	return (((x) <= (min)) ? (min) : (((x) >= (max)) ? (max) : (x)));
 }
 
 __device__ __forceinline__ vec3 any_perpendicular(const vec3& v) {

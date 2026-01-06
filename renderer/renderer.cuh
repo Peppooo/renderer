@@ -3,22 +3,25 @@
 #include "objects.cuh"
 #include "scene.cuh"
 #include "bvh.cuh"
+#include "light.cuh"
 
-__device__ __forceinline__ float direct_light(const vec3* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,const vec3& p,const vec3& n) { // gets illumination from the brightest of all the lights
+__device__ __forceinline__ vec3 direct_light(const light* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,const vec3& p,const vec3& n) { // gets illumination from the brightest of all the lights
 	float max_light_scalar = 0;
 	vec3 normalized_n = n.len2()==1?n:n.norm();
-	vec3 pl,nl;
+
+	vec3 out = {0,0,0};
 	for(int i = 0; i < lightsSize; i++) {
-		vec3 dir_to_light = (lights[i] - p).norm();
-		float scalar = (dot(dir_to_light,normalized_n)); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
-		if(tree.castRayShadow(scene,p,dir_to_light,lights[i]) && scalar > max_light_scalar) {
-			max_light_scalar = scalar;
+		vec3 dir_to_light = (lights[i].pos - p);
+		if(tree.castRayShadow(scene,p,dir_to_light,lights[i].pos)) {
+			float l = (lights[i].pos - p).len2();
+			float scalar = max((dot(dir_to_light.norm(),normalized_n)),0.0f); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
+			out += lights[i].color * scalar * lights[i].intensity * (1 / l);
 		}
 	}
-	return max_light_scalar;
+	return out;
 }
 
-__device__ __forceinline__ float indirect_light(const vec3* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,const vec3& p,const vec3& n,const int numRays,curandStatePhilox4_32_10_t* state) {
+/*__device__ __forceinline__ float indirect_light(const light* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,const vec3& p,const vec3& n,const int numRays,curandStatePhilox4_32_10_t* state) {
 	float max_scalar = 0;
 	float direct_scalar = direct_light(lights,lightsSize,scene,tree,p,n);
 	for(int i = 0; i < numRays; i++) {
@@ -58,49 +61,65 @@ __device__ __forceinline__ float indirect_light(const vec3* lights,const size_t&
 		}
 	}
 	return max(max_scalar,0.0f);
+}*/
+
+__device__ __forceinline__ vec3 skyBoxColor(const vec3& D) {
+	float kY = (D.norm().y + 1) / 2;
+	return vec3{191 / 255.0f,245 / 255.0f,1}*kY + vec3{0, 110 / 255.0f, 1}*(1 - kY);
 }
 
-__device__ __forceinline__ vec3 compute_ray(const vec3* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,vec3 O,vec3 D,curandStatePhilox4_32_10_t* state,bool& needs_sampling,int reflections = 2,int rlRays = 64) {
-	vec3 color = {0,0,0}; int done_reflections = 0; bool skyHit = false;
-	needs_sampling = false;
-	for(int i = 0; i < reflections; i++) {
-		vec3 p,surf_norm = {0,0,0}; // p is the intersection location
-		int objIdx = tree.castRay(scene,O,D,p,surf_norm);
-		if(objIdx != -1) {
-			float scalar = direct_light(lights,lightsSize,scene,tree,p,surf_norm);
-			//if(scalar <= 0.99) {
-			//	scalar = max(scalar,indirect_light(lights,lightsSize,scene,tree,p,surf_norm,rlRays,state));
-			//}
+__device__ __forceinline__ vec3 compute_ray(const light* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,vec3 O,vec3 D,curandStatePhilox4_32_10_t* state,int reflections = 2,int rlRays = 64) {
+	vec3 L = {0,0,0};
+	vec3 throughput = {1,1,1};
+	
+	vec3 p_hit,n_hit;
+	for(int bounce = 0; bounce < reflections; bounce++) {
+		int hit = tree.castRay(scene,O,D,p_hit,n_hit);
+		if(hit == -1) {
+			L += throughput * skyBoxColor(D);
+			break;
+		}
 
-			if(scalar>epsilon) { // if the surface before isnt lit then dont add anything
-				needs_sampling = needs_sampling || scene->mat[objIdx].needs_sampling();
-				done_reflections++;
-				//vec3 non_mapped_norm = scene.t_normal[objidx];
-				color += (scene->color(objIdx,p) * scalar);
-				if(i < reflections) { // if its not the last reflection or triangle hit not reflective
-					O = p;
-					D = scene->mat[objIdx].bounce(O,surf_norm,state);
-				}
-			}
-			else break;
-			if(scene->mat[objIdx].type == diffuse) {
-				break;
-			}
+		// Add emission
+		if(scene->mat[hit].emission != 0) {
+			L += throughput * scene->mat[hit].emission;
+		}
+
+		// Direct lighting
+		L += throughput * direct_light(lights,lightsSize,scene,tree,p_hit,n_hit);
+
+
+		// Sample BSDF
+		vec3 wi;
+		float pdf;
+		bool delta_brdf;
+		vec3 albedo = scene->color(hit,p_hit);
+		vec3 f = scene->mat[hit].brdf(D,n_hit,wi,albedo,pdf,delta_brdf,state);
+
+		if(pdf <= 0 || f == vec3{0,0,0}) break;
+
+		if(!delta_brdf) {
+			throughput = throughput * f * abs(dot(n_hit,wi)) / pdf;
 		}
 		else {
-			if(i == 0) skyHit = true;
-			break; // ray didnt hit anything
+			throughput = throughput * albedo;
 		}
-	}
-	if(skyHit) {
-		float kY = (D.norm().y + 1) / 2;
-		return vec3{191,245,255}*kY + vec3{0, 110, 255}*(1 - kY);
+
+		// Russian roulette termination
+		if(bounce > 2) {
+			float p = max(throughput.x,max(throughput.y,throughput.z));
+			if(curand_uniform(state) > p) break;
+			throughput = throughput/p;
+		}
+
+		O = p_hit,D = wi;
 	}
 
-	return color/done_reflections;
+	return L;
+
 }
 
-__global__ void render_pixel(int w,int h,const vec3* lights,size_t lightsSize,const Scene* scene,const bvh tree,uint32_t* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed) {
+__global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,const Scene* scene,const bvh tree,uint32_t* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed) {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
 	int idx = (x + y * w);
@@ -117,22 +136,19 @@ __global__ void render_pixel(int w,int h,const vec3* lights,size_t lightsSize,co
 		for(float j = (jC); j < (jC + 1); j += steps_l) {
 			n_samples_count = 0;
 			vec3 pixel = {0,0,0};
-			bool needs_sampling = false;
 			for(int z = 0; z < n_samples; z++) {
 				vec3 current_sample = {0,0,0};
 
 				vec3 dir = rotation * vec3{i,j,focal_length};
-				current_sample = compute_ray(lights,lightsSize,scene,tree,origin,dir,&state,needs_sampling,reflections,reflected_rays);
+				current_sample = compute_ray(lights,lightsSize,scene,tree,origin,dir,&state,reflections,reflected_rays);
 				for(int k = 0; k < lightsSize; k++) {
-					float lightdot = dot(dir.norm(),(lights[k] - origin).norm());
+					float lightdot = dot(dir.norm(),(lights[k].pos - origin).norm());
 					if(lightdot > (1 - 0.0001) && lightdot < (1 + 0.0001)) { // draws a sphere in the location of the light
-						needs_sampling = false;
-						current_sample = vec3{255,255,255};
+						current_sample = vec3{1,1,1};
 					}
 				}
 				pixel += current_sample;
 				n_samples_count++;
-				if(!needs_sampling) break;
 			}
 
 
@@ -144,7 +160,7 @@ __global__ void render_pixel(int w,int h,const vec3* lights,size_t lightsSize,co
 	data[idx] = (ssaa_sum_sample / ssaa_samples_count).argb();
 }
 
-	
+
 __global__ void render_pixel_debug(int w,int h,const vec3* lights,size_t lightsSize,const Scene* scene,const bvh tree,uint32_t* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed) 
 {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;

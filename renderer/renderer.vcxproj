@@ -86,6 +86,7 @@
   <ItemGroup>
     <ClInclude Include="bvh.cuh" />
     <ClInclude Include="engine.cuh" />
+    <ClInclude Include="light.cuh" />
     <ClInclude Include="material.cuh" />
     <ClInclude Include="normal.cuh" />
     <ClInclude Include="objects.cuh" />

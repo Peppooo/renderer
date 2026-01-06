@@ -29,7 +29,7 @@ __host__ void load_obj_in_host_array_scene(const char* filename,const vec3& posi
         vector<string> split_space = split_string(line,' ');
         
         if(split_space[0] == "v") {
-            verticies.push_back(vec3{stof(split_space[1]),stof(split_space[2]),stof(split_space[3])});
+            verticies.push_back(vec3{stof(split_space[1]),stof(split_space[2]),stof(split_space[3])}*scaling);
             obj_min = v_min(obj_min,verticies.back());
             obj_max = v_max(obj_max,verticies.back());
         }

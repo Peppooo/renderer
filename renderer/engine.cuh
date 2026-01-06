@@ -37,7 +37,7 @@ public:
 	// device
 
 	Scene* scene;
-	vec3* lights;
+	light* lights;
 
 	__host__ renderer(const int W,const int H,const float Fov = M_PI_2,const int samples_per_pixel = 1,const int Max_reflections = 4,const int Ssaa = 1,const int Indirect_rays=32): // rotation = {yaw,pitch}, Fov is in radians
 		yaw(0),pitch(0),origin({0,0,0}),frame_n(0),frame_dt(0),w(W),h(H),fov(Fov),max_reflections(Max_reflections),ssaa(Ssaa),n_samples_pixel(samples_per_pixel),indirect_rays(Indirect_rays) {
@@ -55,7 +55,7 @@ public:
 		);
 		cudaMalloc(&d_framebuffer,sizeof(uint32_t) * w * h);
 		cudaMalloc(&scene,sizeof(Scene));
-		cudaMalloc(&lights,sizeof(vec3) * MAX_LIGHTS);
+		cudaMalloc(&lights,sizeof(light) * MAX_LIGHTS);
 	}
 	__host__ void render(int seed=time(0)) {
 		auto currentTime = chrono::high_resolution_clock::now();
@@ -108,8 +108,8 @@ public:
 		CUDA_CHECK(cudaMemcpy(scene,h_scene_soa,sizeof(Scene),cudaMemcpyHostToDevice));
 		delete h_scene_soa;
 	}
-	void import_lights_from_host(const vec3* h_lights,const int h_lightsSize) {
-		cudaMemcpy(lights,h_lights,sizeof(vec3)*h_lightsSize,cudaMemcpyHostToDevice);
+	void import_lights_from_host(const light* h_lights,const int h_lightsSize) {
+		cudaMemcpy(lights,h_lights,sizeof(light)*h_lightsSize,cudaMemcpyHostToDevice);
 		lightsSize = h_lightsSize;
 	}
 };

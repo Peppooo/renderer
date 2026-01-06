@@ -27,5 +27,5 @@ data = bytes(data)
 
 # Save to a binary file
 
-with open(name.split(".")[0]+".tex", "wb") as f:
+with open(name.split(".")[0]+".bin", "wb") as f:
     f.write(data)
