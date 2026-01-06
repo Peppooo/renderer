@@ -15,7 +15,7 @@ __device__ __forceinline__ vec3 direct_light(const light* lights,const size_t& l
 		if(tree.castRayShadow(scene,p,dir_to_light,lights[i].pos)) {
 			float l = (lights[i].pos - p).len2();
 			float scalar = max((dot(dir_to_light.norm(),normalized_n)),0.0f); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
-			out += lights[i].color * scalar * lights[i].intensity * (1 / l);
+			out += lights[i].color * scalar * (1 / max(l,0.01f));
 		}
 	}
 	return out;
