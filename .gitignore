@@ -10,14 +10,28 @@
 *.userosscache
 *.sln.docstates
 
-.\renderer\renderer\x64
-*.obj
-
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
 # Mono auto generated files
 mono_crash.*
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -61,7 +75,7 @@ StyleCopReport.xml
 *_h.h
 *.ilk
 *.meta
-kernel.cu.obj
+*.obj
 *.iobj
 *.pch
 *.pdb

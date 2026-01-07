@@ -14,7 +14,7 @@ struct box {
 	__host__ __device__ vec3 center() const {
 		return (Min + Max) * 0.5f;
 	}
-	float surf_area() const {
+	inline float surf_area() const {
 		vec3 L = Max - Min;
 		return L.x*L.x+L.y*L.y+L.z*L.z;
 	}
@@ -96,8 +96,8 @@ public:
 			if(extent[ax] <= 0.0f)
 				continue;
 
-			for(int b = 1; b < 16; b++) {
-				float t = b / 16.0f;
+			for(int b = 1; b < 8; b++) {
+				float t = b / 8.0f;
 				float splitPos = parentBounds.Min.axis(ax) + extent[ax] * t;
 
 				box leftBox,rightBox;
@@ -192,10 +192,11 @@ public:
 			nodes[root].bounds.grow_to_include(scene[i]);
 			nodes[root].bounds.trigCount++;
 		}
-		cout << "building bvh structure.." << endl;
+		cout << "building bvh structure... ";
 		buildChildren(scene,sceneSize,root,0,max_depth);
 		cudaMalloc(&dev_nodes,sizeof(node) * nodesCount);
 		cudaMemcpy(dev_nodes,nodes,sizeof(node) * nodesCount,cudaMemcpyHostToDevice);
+		cout << "done" << endl;
 	}
 	__device__ int castRay(const Scene* scene,const vec3& o,const vec3& d,vec3& p,vec3& n,int* debug=nullptr) const {
 		int stack[64]; int stackSize = 0;

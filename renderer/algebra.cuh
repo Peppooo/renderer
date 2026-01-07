@@ -89,9 +89,6 @@ struct vec3 {
 		return *this * (rsq == 0 ? epsilon : rsq);
 	}
 	__host__ __device__ vec3 to255() const {
-		if(x > 200 || y > 200 || z > 200) {
-			printf("COLOR EXPRESSED IN 255 RGB %d\n");
-		}
 		return vec3{clamp(x,0,1),clamp(y,0,1),clamp(z,0,1)}*255.0f;
 	}
 	__host__ __device__ uint32_t argb() const {

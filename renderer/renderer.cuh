@@ -15,6 +15,7 @@ __device__ __forceinline__ vec3 direct_light(const light* lights,const size_t& l
 		if(tree.castRayShadow(scene,p,dir_to_light,lights[i].pos)) {
 			float l = (lights[i].pos - p).len2();
 			float scalar = max((dot(dir_to_light.norm(),normalized_n)),0.0f); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
+			
 			out += lights[i].color * scalar * (1 / max(l,0.01f));
 		}
 	}
@@ -119,7 +120,7 @@ __device__ __forceinline__ vec3 compute_ray(const light* lights,const size_t& li
 
 }
 
-__global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,const Scene* scene,const bvh tree,uint32_t* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed) {
+__global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,const Scene* scene,const bvh tree,vec3* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed) {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
 	int idx = (x + y * w);
@@ -157,7 +158,7 @@ __global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,c
 		}
 	}
 
-	data[idx] = (ssaa_sum_sample / ssaa_samples_count).argb();
+	data[idx] += (ssaa_sum_sample / ssaa_samples_count);
 }
 
 

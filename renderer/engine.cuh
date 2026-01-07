@@ -7,6 +7,19 @@
 #include "physics.cuh"
 #include "algebra.cuh"
 
+__global__ void acc_render(int w,int h,uint32_t* return_buffer,vec3* acc_buffer,int frames_accumulated) {
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int idx = (x + y * w);
+	if(idx >= w * h) return;
+	if(frames_accumulated == 0) {
+		acc_buffer[idx] = vec3{0,0,0};
+	}
+	else {
+		return_buffer[idx] = (acc_buffer[idx] / (float)frames_accumulated).argb();
+	}
+}
+
 class renderer {
 private:
 	// limits
@@ -17,11 +30,17 @@ private:
 	SDL_Texture* frame_texture;
 	bvh tree;
 	chrono::time_point<chrono::steady_clock> lastTime;
+	vec3* acc_framebuffer;
 	uint32_t* framebuffer;
 
+	int frames_accumulated = 0;
+
 	// device
+	vec3* d_acc_framebuffer;
 	uint32_t* d_framebuffer;
-	
+
+	float lastYaw,lastPitch;
+	vec3 lastOrigin; bool import_lights = false;
 
 public:
 	// host
@@ -53,40 +72,57 @@ public:
 			w,
 			h
 		);
-		cudaMalloc(&d_framebuffer,sizeof(uint32_t) * w * h);
+		cudaMalloc(&d_acc_framebuffer,sizeof(vec3) * w * h);
+		cudaMalloc(&d_framebuffer,sizeof(vec3) * w * h);
 		cudaMalloc(&scene,sizeof(Scene));
 		cudaMalloc(&lights,sizeof(light) * MAX_LIGHTS);
+		cudaMalloc(&lights,sizeof(light) * MAX_LIGHTS);
+		framebuffer = new uint32_t[w * h];
 	}
-	__host__ void render(int seed=time(0)) {
+	__host__ void render() {
 		auto currentTime = chrono::high_resolution_clock::now();
 		chrono::duration<float> deltaTime = currentTime - lastTime;
 		frame_dt = deltaTime.count();
 		lastTime = currentTime;
-		
-		int _pitch;
-		SDL_LockTexture(frame_texture,nullptr,(void**)&framebuffer,&_pitch);
 
 		float focal_length = w / (2 * tanf(fov / 2));
 
 		matrix rot = rotation(0,pitch,yaw);
 
+
 		dim3 block(8,8);
 		dim3 grid((w + block.x - 1) / block.x,(h + block.y - 1) / block.y);
 
+		if(lastYaw != yaw || lastPitch != pitch || !(lastOrigin == origin) || import_lights) {
+			frames_accumulated = 0;
+			acc_render << <grid,block >> > (w,h,d_framebuffer,d_acc_framebuffer,0);
+		}
 
-		render_pixel<<<grid,block>>>(w,h,lights,lightsSize,scene,tree,d_framebuffer,origin,rot,focal_length,indirect_rays,ssaa,max_reflections,n_samples_pixel,seed);
+		render_pixel<<<grid,block>>>(w,h,lights,lightsSize,scene,tree,d_acc_framebuffer,origin,rot,focal_length,indirect_rays,ssaa,max_reflections,n_samples_pixel,time(0)*frame_n);
+		frames_accumulated++;
 
 		CUDA_CHECK(cudaGetLastError());
 
 		CUDA_CHECK(cudaDeviceSynchronize());
 
+		acc_render << <grid,block >> > (w,h,d_framebuffer,d_acc_framebuffer,frames_accumulated);
+
+
+		int _pitch;
+		SDL_LockTexture(frame_texture,nullptr,(void**)&framebuffer,&_pitch);
+
+
 		cudaMemcpy(framebuffer,d_framebuffer,sizeof(uint32_t) * w * h,cudaMemcpyDeviceToHost);
+
 
 		SDL_UnlockTexture(frame_texture);
 		SDL_RenderClear(sdl_renderer);
 		SDL_RenderCopy(sdl_renderer,frame_texture,nullptr,nullptr);
 		SDL_RenderPresent(sdl_renderer);
 		frame_n++;
+		lastOrigin = origin;
+		lastPitch = pitch,lastYaw = yaw;
+		import_lights = false;
 	}
 	void import_scene_from_host(const Scene* h_scene) const {
 		cudaMemcpy(scene,h_scene,sizeof(Scene),cudaMemcpyHostToDevice);
@@ -111,5 +147,6 @@ public:
 	void import_lights_from_host(const light* h_lights,const int h_lightsSize) {
 		cudaMemcpy(lights,h_lights,sizeof(light)*h_lightsSize,cudaMemcpyHostToDevice);
 		lightsSize = h_lightsSize;
+		import_lights = true;
 	}
 };
