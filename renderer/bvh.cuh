@@ -8,7 +8,7 @@ __device__ void d_swap(float& f1,float& f2) {
 	f2 = copy;
 }
 
-struct box {
+struct alignas(32) box {
 	vec3 Min,Max;
 	int startIndex; int trigCount;
 	__host__ __device__ vec3 center() const {
@@ -24,9 +24,9 @@ struct box {
 		startIndex = startIdx;
 		trigCount = 0;
 	}
-	__device__ bool intersect(const vec3& O,const vec3& D,float& dist) const
+	__device__ bool intersect(const vec3& O,const vec3& invDir,float& dist) const
 	{
-		vec3 invDir = 1 / D;
+		//vec3 invDir = 1 / D;
 		vec3 tMin = (Min - O)*invDir;
 		vec3 tMax = (Max - O) * invDir;
 		vec3 t1 = v_min(tMin,tMax);
@@ -174,8 +174,6 @@ public:
 
 		size_t targetNcount = (1ull<<(max_depth+1))-1; // 2^(max_depth+1)-1
 
-		cout << sceneSize << endl;
-
 		while(stack.size() > 0) {
 			auto current_build = stack.front(); 
 			stack.erase(stack.begin());
@@ -183,16 +181,11 @@ public:
 			if(nodesCount >= max_nodes - 4) break;
 
 			
-			if(!buildChilds(scene,sceneSize,current_build) && nodesCount<targetNcount) {
+			if(!buildChilds(scene,sceneSize,current_build)) {
 				stack.push_back(nodes[current_build].leftChild);
 				stack.push_back(nodes[current_build].leftChild + 1);
 			}
-			
-			
 		}
-		
-
-		
 	}
 	void optimize() {
 		opt_nodes = new box[nodesCount];
@@ -222,15 +215,17 @@ public:
 
 		cout << "optimizing bvh structure... ";
 		optimize();
-		cout << "done";
+		delete[] nodes;
+		cout << "done" << endl;
+
 
 
 		if(dev_nodes) cudaFree(dev_nodes);
 		cudaMalloc(&dev_nodes,sizeof(box) * nodesCount);
 		cudaMemcpy(dev_nodes,opt_nodes,sizeof(box) * nodesCount,cudaMemcpyHostToDevice);
-		printNodes();
+		//printNodes();
 	}
-	__device__ int castRay(const Scene* scene,const vec3& o,const vec3& d,vec3& p,vec3& n,int* debug=nullptr) const {
+	__device__ int castRay(const Scene* scene,const vec3& o,const vec3& d,const vec3& invD,vec3& p,vec3& n,int* debug=nullptr) const {
 		int stack[64]; int stackSize = 0;
 		stack[stackSize++] = 0;
 		float min_dist = INFINITY;
@@ -240,7 +235,7 @@ public:
 		// start from root
 		while(stackSize > 0) {
 			stackSize--;
-			const box current_node = dev_nodes[stack[stackSize]];
+			const box& current_node = dev_nodes[stack[stackSize]];
 			// if leaf node, add indecies
 			if(current_node.trigCount > 0) {
 				// iterate triangles
@@ -260,8 +255,8 @@ public:
 			else {
 				// push children to stack
 				float distLeft,distRight;
-				bool hitLeft = dev_nodes[current_node.startIndex].intersect(o,d,distLeft);
-				bool hitRight = dev_nodes[current_node.startIndex +1].intersect(o,d,distRight);
+				bool hitLeft = dev_nodes[current_node.startIndex].intersect(o,invD,distLeft);
+				bool hitRight = dev_nodes[current_node.startIndex +1].intersect(o,invD,distRight);
 				distLeft = distLeft * distLeft;
 				distRight = distRight * distRight;
 
@@ -277,7 +272,7 @@ public:
 		}
 		return hitIdx;
 	}
-	__device__ bool castRayShadow(const Scene* scene,const vec3& o,const vec3& d,const vec3& L) const {
+	__device__ bool castRayShadow(const Scene* scene,const vec3& o,const vec3& d,const vec3& invD,const vec3& L) const {
 		int stack[64]; int stackSize = 0;
 		stack[stackSize++] = 0;
 		float min_dist = INFINITY;
@@ -287,7 +282,7 @@ public:
 		while(stackSize > 0) {
 			int current_idx = stack[stackSize - 1]; stackSize--;
 			float bound_dist = 0;
-			if(dev_nodes[current_idx].intersect(o,d,bound_dist) && bound_dist < max_dist) {
+			if(dev_nodes[current_idx].intersect(o,invD,bound_dist) && bound_dist < max_dist) {
 				// if leaf node, add indecies
 				if(dev_nodes[current_idx].trigCount > 0) {
 					// iterate triangles
@@ -321,9 +316,7 @@ public:
 	{
 
 		for(int i = 0; i < nodesCount; i++) {
-			if(nodes[i].bounds.trigCount > 100) {
-				cout << "location: " << i << " length: " << nodes[i].bounds.trigCount << " , child:  " << nodes[i].leftChild << "/" << (i*2+1) << endl;
-			}
+			cout << "location: " << i << " length: " << nodes[i].bounds.trigCount << " , child:  " << nodes[i].leftChild << "/" << (i*2+1) << endl;
 		}
 	}
 };

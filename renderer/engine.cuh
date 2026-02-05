@@ -135,11 +135,11 @@ public:
 			h_scene_soa->addObject(h_scene[i]);
 		}
 		int counter = 0;
-		for(int i = 0; i < tree.nodesCount; i++) {
+		/*for(int i = 0; i < tree.nodesCount; i++) {
 			if(tree.nodes[i].leftChild == 0) {
 				counter += tree.nodes[i].bounds.trigCount;
 			}
-		}
+		}*/
 		cout << "leaf nodes primitives count: " << counter << "/" << h_scene_soa->sceneSize << endl;
 		CUDA_CHECK(cudaMemcpy(scene,h_scene_soa,sizeof(Scene),cudaMemcpyHostToDevice));
 		delete h_scene_soa;

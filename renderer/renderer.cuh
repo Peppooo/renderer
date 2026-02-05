@@ -12,7 +12,7 @@ __device__ __forceinline__ vec3 direct_light(const light* lights,const size_t& l
 	vec3 out = {0,0,0};
 	for(int i = 0; i < lightsSize; i++) {
 		vec3 dir_to_light = (lights[i].pos - p);
-		if(tree.castRayShadow(scene,p,dir_to_light,lights[i].pos)) {
+		if(tree.castRayShadow(scene,p,dir_to_light,lights[i].pos,1.0f/dir_to_light)) {
 			float l = (lights[i].pos - p).len2();
 			float scalar = max((dot(dir_to_light.norm(),normalized_n)),0.0f); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
 			
@@ -75,7 +75,8 @@ __device__ __forceinline__ vec3 compute_ray(const light* lights,const size_t& li
 	
 	vec3 p_hit,n_hit;
 	for(int bounce = 0; bounce < reflections; bounce++) {
-		int hit = tree.castRay(scene,O,D,p_hit,n_hit);
+		vec3 invD = 1.0f / D;
+		int hit = tree.castRay(scene,O,D,invD,p_hit,n_hit);
 		if(hit == -1) {
 			L += throughput * skyBoxColor(D);
 			break;
@@ -164,7 +165,7 @@ __global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,c
 }
 
 
-__global__ void render_pixel_debug(int w,int h,const vec3* lights,size_t lightsSize,const Scene* scene,const bvh tree,uint32_t* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed) 
+/*__global__ void render_pixel_debug(int w,int h,const vec3* lights,size_t lightsSize,const Scene* scene,const bvh tree,uint32_t* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed)
 {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -184,4 +185,4 @@ __global__ void render_pixel_debug(int w,int h,const vec3* lights,size_t lightsS
 	else {
 		data[idx] = 0;
 	}
-}
+}*/
