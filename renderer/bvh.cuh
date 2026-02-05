@@ -58,30 +58,25 @@ class node {
 public:
 	box bounds;
 	int leftChild = 0;
-	int rightChild = 0;
 };
 #define max_nodes MAX_OBJ
 
-
-
 class bvh {
 private:
-	node* dev_nodes;
+	box* dev_nodes = nullptr;
+	
+	box* opt_nodes = nullptr;
+
 public:
 	node* nodes = new node[max_nodes];
 	int nodesCount=0;
-	void buildChildren(object* scene,
-		int sceneSize,
-		int idx,
-		int currentDepth,
-		int maxDepth)
-	{
+	unsigned char buildChilds(object* scene,int sceneSize,int idx) {
 		const box& parentBounds = nodes[idx].bounds;
 		const int start = parentBounds.startIndex;
 		const int count = parentBounds.trigCount;
 
-		if(count <= 4 || currentDepth >= maxDepth)
-			return;
+		if(count <= 4)
+			return 1;
 
 		vec3 extent = parentBounds.Max - parentBounds.Min;
 
@@ -141,13 +136,13 @@ public:
 		}
 
 		if(bestAxis == -1) 
-			return;
+			return 1;
 
 		int leftChild = nodesCount++;
 		int rightChild = nodesCount++;
 
 		nodes[idx].leftChild = leftChild;
-		nodes[idx].rightChild = rightChild;
+		//nodes[idx].rightChild = rightChild;
 
 		int i = start;
 		int j = start + count - 1;
@@ -170,15 +165,44 @@ public:
 		nodes[rightChild].bounds.startIndex = start + bestLeftCount;
 		nodes[rightChild].bounds.trigCount = bestRightCount;
 
-		// === Recurse ===
-		if(nodesCount < max_nodes - 2) {
-			buildChildren(scene,sceneSize,leftChild,
-				currentDepth + 1,maxDepth);
-			buildChildren(scene,sceneSize,rightChild,
-				currentDepth + 1,maxDepth);
+		return 0;
+	}
+	void structurate(object* scene,const int sceneSize,const int max_depth) { // build from root
+		vector<int> stack;
+		stack.reserve(1024);
+		stack.push_back(0);
+
+		size_t targetNcount = (1ull<<(max_depth+1))-1; // 2^(max_depth+1)-1
+
+		cout << sceneSize << endl;
+
+		while(stack.size() > 0) {
+			auto current_build = stack.front(); 
+			stack.erase(stack.begin());
+
+			if(nodesCount >= max_nodes - 4) break;
+
+			
+			if(!buildChilds(scene,sceneSize,current_build) && nodesCount<targetNcount) {
+				stack.push_back(nodes[current_build].leftChild);
+				stack.push_back(nodes[current_build].leftChild + 1);
+			}
+			
+			
 		}
-		else {
-			cout << "BVH building stopped by nodes out of bounds" << endl;
+		
+
+		
+	}
+	void optimize() {
+		opt_nodes = new box[nodesCount];
+		for(int i = 0; i < nodesCount;i++) {
+			opt_nodes[i] = nodes[i].bounds;
+			if(nodes[i].leftChild > 0) { // internal bounding (only care about his child nodes)
+				opt_nodes[i].startIndex = nodes[i].leftChild;
+				opt_nodes[i].trigCount = 0; // doesnt contain any triangles since is internal and non leaf
+			}
+			// leaf nodes stay the same
 		}
 	}
 	void build(const int max_depth,object* scene,const int sceneSize) {
@@ -193,10 +217,18 @@ public:
 			nodes[root].bounds.trigCount++;
 		}
 		cout << "building bvh structure... ";
-		buildChildren(scene,sceneSize,root,0,max_depth);
-		cudaMalloc(&dev_nodes,sizeof(node) * nodesCount);
-		cudaMemcpy(dev_nodes,nodes,sizeof(node) * nodesCount,cudaMemcpyHostToDevice);
+		structurate(scene,sceneSize,max_depth);
 		cout << "done" << endl;
+
+		cout << "optimizing bvh structure... ";
+		optimize();
+		cout << "done";
+
+
+		if(dev_nodes) cudaFree(dev_nodes);
+		cudaMalloc(&dev_nodes,sizeof(box) * nodesCount);
+		cudaMemcpy(dev_nodes,opt_nodes,sizeof(box) * nodesCount,cudaMemcpyHostToDevice);
+		printNodes();
 	}
 	__device__ int castRay(const Scene* scene,const vec3& o,const vec3& d,vec3& p,vec3& n,int* debug=nullptr) const {
 		int stack[64]; int stackSize = 0;
@@ -208,19 +240,19 @@ public:
 		// start from root
 		while(stackSize > 0) {
 			stackSize--;
-			const node current_node = dev_nodes[stack[stackSize]];
+			const box current_node = dev_nodes[stack[stackSize]];
 			// if leaf node, add indecies
-			if(current_node.leftChild == 0 && current_node.rightChild == 0) {
+			if(current_node.trigCount > 0) {
 				// iterate triangles
-				for(int i = 0; i < current_node.bounds.trigCount; i++) {
+				for(int i = 0; i < current_node.trigCount; i++) {
 					vec3 _p,_n;
 					if(debug) (*debug)++;
-					if(scene->intersect(i + current_node.bounds.startIndex,o,d,_p,_n)) {
+					if(scene->intersect(i + current_node.startIndex,o,d,_p,_n)) {
 						current_dist = (_p - o).len2();
 						if(current_dist < min_dist) {
 							p = _p,n = _n;
 							min_dist = current_dist;
-							hitIdx = i + current_node.bounds.startIndex;
+							hitIdx = i + current_node.startIndex;
 						}
 					}
 				}
@@ -228,18 +260,18 @@ public:
 			else {
 				// push children to stack
 				float distLeft,distRight;
-				bool hitLeft = dev_nodes[current_node.leftChild].bounds.intersect(o,d,distLeft);
-				bool hitRight = dev_nodes[current_node.rightChild].bounds.intersect(o,d,distRight);
+				bool hitLeft = dev_nodes[current_node.startIndex].intersect(o,d,distLeft);
+				bool hitRight = dev_nodes[current_node.startIndex +1].intersect(o,d,distRight);
 				distLeft = distLeft * distLeft;
 				distRight = distRight * distRight;
 
 				if(distLeft < distRight) {
-					if(hitLeft && distLeft < min_dist) stack[stackSize++] = current_node.leftChild;
-					if(hitRight && distRight < min_dist) stack[stackSize++] = current_node.rightChild;
+					if(hitLeft && distLeft < min_dist) stack[stackSize++] = current_node.startIndex;
+					if(hitRight && distRight < min_dist) stack[stackSize++] = current_node.startIndex + 1;
 				}
 				else {
-					if(hitRight && distRight < min_dist) stack[stackSize++] = current_node.rightChild;
-					if(hitLeft && distLeft < min_dist) stack[stackSize++] = current_node.leftChild;
+					if(hitRight && distRight < min_dist) stack[stackSize++] = current_node.startIndex + 1;
+					if(hitLeft && distLeft < min_dist) stack[stackSize++] = current_node.startIndex;
 				}
 			}
 		}
@@ -255,33 +287,31 @@ public:
 		while(stackSize > 0) {
 			int current_idx = stack[stackSize - 1]; stackSize--;
 			float bound_dist = 0;
-			if(dev_nodes[current_idx].bounds.intersect(o,d,bound_dist) && bound_dist < max_dist) {
+			if(dev_nodes[current_idx].intersect(o,d,bound_dist) && bound_dist < max_dist) {
 				// if leaf node, add indecies
-				if(dev_nodes[current_idx].leftChild == 0 && dev_nodes[current_idx].rightChild == 0) {
+				if(dev_nodes[current_idx].trigCount > 0) {
 					// iterate triangles
-					for(int i = 0; i < dev_nodes[current_idx].bounds.trigCount; i++) {
+					for(int i = 0; i < dev_nodes[current_idx].trigCount; i++) {
 						vec3 _p,_n;
-						if(scene->intersect(i + dev_nodes[current_idx].bounds.startIndex,o,d,_p,_n) && (_p - o).len() < max_dist) {
+						if(scene->intersect(i + dev_nodes[current_idx].startIndex,o,d,_p,_n) && (_p - o).len() < max_dist) {
 							return false;
 						}
 					}
 				}
 				else {
 					// push children to stack
-					if((dev_nodes[dev_nodes[current_idx].leftChild].bounds.center() - o).len2() < (dev_nodes[dev_nodes[current_idx].rightChild].bounds.center() - o).len2()) {
-						if(dev_nodes[current_idx].leftChild != 0)
-							stack[stackSize++] = (dev_nodes[current_idx].leftChild);
-						if(dev_nodes[current_idx].rightChild != 0)
-							stack[stackSize++] = (dev_nodes[current_idx].rightChild);
+					if(dev_nodes[current_idx].startIndex != 0) {
+						if((dev_nodes[dev_nodes[current_idx].startIndex].center() - o).len2() < (dev_nodes[dev_nodes[current_idx].startIndex + 1].center() - o).len2()) {
+							stack[stackSize++] = (dev_nodes[current_idx].startIndex);
+							stack[stackSize++] = (dev_nodes[current_idx].startIndex + 1);
+						}
+						else {
+							stack[stackSize++] = (dev_nodes[current_idx].startIndex + 1);
+							stack[stackSize++] = (dev_nodes[current_idx].startIndex);
+						}
 					}
-					else {
-						if(dev_nodes[current_idx].rightChild != 0)
-							stack[stackSize++] = (dev_nodes[current_idx].leftChild);
-						if(dev_nodes[current_idx].leftChild != 0)
-							stack[stackSize++] = (dev_nodes[current_idx].rightChild);
-					}
-
 				}
+
 			}
 		}
 		return true;
@@ -291,8 +321,8 @@ public:
 	{
 
 		for(int i = 0; i < nodesCount; i++) {
-			if(nodes[i].leftChild == 0 && nodes[i].rightChild == 0) {
-				cout << "Length: " << nodes[i].bounds.trigCount << " , childA,B: " << nodes[i].leftChild << " , " << nodes[i].rightChild << endl;
+			if(nodes[i].bounds.trigCount > 100) {
+				cout << "location: " << i << " length: " << nodes[i].bounds.trigCount << " , child:  " << nodes[i].leftChild << "/" << (i*2+1) << endl;
 			}
 		}
 	}

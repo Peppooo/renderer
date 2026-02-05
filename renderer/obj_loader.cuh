@@ -17,8 +17,11 @@ __host__ vector<string> split_string(const string& s,const char div) {
 }
 
 __host__ void load_obj_in_host_array_scene(const char* filename,const vec3& position,const vec3& scaling,const material& mat,texture* tex,normal* norm,object* scene,size_t& sceneSize) {
-	vector<vec3> verticies; 
-    vector<vec3> normals;
+    printf("loading obj... ");
+    vector<vec3> verticies;
+    //vector<vec3> normals;
+    verticies.reserve(10000000);
+    //normals.reserve(10000000);
     ifstream file(filename);// here i will use fstream since its easier to use for reading line by line obj files
 
     if(!file) printf("Error opening file");
@@ -34,14 +37,14 @@ __host__ void load_obj_in_host_array_scene(const char* filename,const vec3& posi
             obj_max = v_max(obj_max,verticies.back());
         }
         else if(split_space[0] == "vn") {
-            normals.push_back({stof(split_space[1]),stof(split_space[2]),stof(split_space[3])});
+            //normals.push_back({stof(split_space[1]),stof(split_space[2]),stof(split_space[3])});
         }
         else if(split_space[0] == "f") {
             vector<vec3> vertici_trig;
             vec3 normal;
             for(int i = 1; i < 4; i++) {
                 vector<string> split_indexs = split_string(split_space[i],'/');
-                if(i==1)  normal = normals[stoi(split_indexs[2])-1];
+                //if(i==1)  normal = normals[stoi(split_indexs[2])-1];
                 vertici_trig.push_back(position+(verticies[stoi(split_indexs[0])-1])-obj_min);
             }
 
@@ -51,4 +54,5 @@ __host__ void load_obj_in_host_array_scene(const char* filename,const vec3& posi
     }
 
     file.close(); 
+    printf("done\n");
 }

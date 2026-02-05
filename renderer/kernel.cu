@@ -15,6 +15,7 @@ int main() {
 	COLOR_TEXTURE(white_texture,(vec3{1,1,1}));
 	COLOR_TEXTURE(green_texture,(vec3{0,1,0}));
 	COLOR_TEXTURE(blue_texture,(vec3{0,0,1}));
+	COLOR_TEXTURE(orange_texture,(vec3{235/255.0f, 180/255.0f, 52/255.0f}));
 	COLOR_TEXTURE(purple_texture,(vec3{126/255.0f, 34/255.0f, 196/255.0f}));
 	COLOR_TEXTURE(black_texture,(vec3{0,0,0}));
 	COLOR_TEXTURE(red_texture,(vec3{1,0,0}));
@@ -24,12 +25,14 @@ int main() {
 	DEFAULT_NORMAL_MAP(default_norm_map);
 	
 
-	load_obj_in_host_array_scene("..\\objects\\sponza.obj",(vec3{-1,-2,-1}),vec3{1,1,1},material(diffuse,0.7f),white_texture,default_norm_map,h_scene,h_sceneSize);
-	//load_obj_in_host_array_scene("..\\objects\\chess.obj",(vec3{0,-2,0}),vec3{0.05,0.05,0.05},material(glossy,0.6f),white_texture,h_scene,h_sceneSize);
-	//load_obj_in_host_array_scene("..\\objects\\dragon_high.obj",{-0.5,-2,-1},{10,10,10},material(diffuse),purple_texture,default_norm_map,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\sponza.obj",(vec3{-1,-2,-1}),vec3{1,1,1},material(specular,0.7f),white_texture,default_norm_map,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\chess.obj",(vec3{0,-2,0}),vec3{0.05,0.05,0.05},material(glossy,0.6f),white_texture,default_norm_map,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\xyz_dragon_low.obj",{-1.2,-2.2,0},{0.01,0.01,0.01},material(specular),orange_texture,default_norm_map,h_scene,h_sceneSize);
+	load_obj_in_host_array_scene("..\\objects\\dragon_high.obj",{-0.5,-2,-1},{10,10,10},material(specular),purple_texture,default_norm_map,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\lucy.obj",{-0.5,-2,-1},{10,10,10},material(specular),purple_texture,default_norm_map,h_scene,h_sceneSize);
 	
 
-	/*plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse),red_texture,default_norm_map);
+	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse),red_texture,default_norm_map);
 
 	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(diffuse),green_texture,default_norm_map);
 
@@ -39,13 +42,13 @@ int main() {
 
 	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(diffuse),white_texture,default_norm_map);
 	
-	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse),floor_texture,floor_norm_map);*/
+	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse),floor_texture,floor_norm_map);
 
-	renderer Camera(1920,1080,M_PI / 1.5f,1,1,1);
+	renderer Camera(1024,1024,M_PI / 1.8f,1,1,1);
 
 	Camera.init("renderer");
 	Camera.origin = vec3{0,0,0};
-	Camera.max_reflections = 4;
+	Camera.max_reflections = 5;
 	Camera.n_samples_pixel = 1;
 	Camera.ssaa = 1;
 
@@ -61,10 +64,11 @@ int main() {
 
 	Camera.import_scene_from_host_array(h_scene,h_sceneSize,32);
 	Camera.import_lights_from_host(h_lights,h_lightsSize);
-	
+
+
 	while(1) {
-		if(Camera.frame_n % 3 == 0) {
-			cout << "frame time: " << sum_time / 3 << " ms" << endl; // average frame time out of 10
+		if(Camera.frame_n % 100 == 0) {
+			cout << "frame time: " << sum_time / 100 << " ms" << endl; // average frame time out of 10
 			sum_time = 0;
 		}
 
@@ -124,8 +128,13 @@ int main() {
 			}
 		}
 
+		Camera.origin = vec3{-0.131847,-0.722366,0.66017}; Camera.yaw = -2.82502; Camera.pitch = -0.344999;
+
 		Camera.render();
 
-		sum_time += Camera.frame_dt*1000;
+
+		if(Camera.frame_n > 2) {
+			sum_time += Camera.frame_dt * 1000;
+		}
 	}
 }

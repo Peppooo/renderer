@@ -136,7 +136,7 @@ public:
 		}
 		int counter = 0;
 		for(int i = 0; i < tree.nodesCount; i++) {
-			if(tree.nodes[i].leftChild == 0 && tree.nodes[i].rightChild == 0) {
+			if(tree.nodes[i].leftChild == 0) {
 				counter += tree.nodes[i].bounds.trigCount;
 			}
 		}

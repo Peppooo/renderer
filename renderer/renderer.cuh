@@ -132,33 +132,35 @@ __global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,c
 	int ssaa_samples_count = 0;
 	vec3 ssaa_sum_sample = {0,0,0};
 	int n_samples_count = 0;
-	float steps_l = rsqrtf(ssaa);
-	for(float i = (iC); i < (iC + 1); i += steps_l) {
-		for(float j = (jC); j < (jC + 1); j += steps_l) {
-			n_samples_count = 0;
-			vec3 pixel = {0,0,0};
-			for(int z = 0; z < n_samples; z++) {
-				vec3 current_sample = {0,0,0};
+	//float steps_l = rsqrtf(ssaa);
+	for(int aa_sample = 0; aa_sample < ssaa; aa_sample++) {
+		double2 r_aa = curand_uniform2_double(&state);
 
-				vec3 dir = rotation * vec3{i,j,focal_length};
-				current_sample = compute_ray(lights,lightsSize,scene,tree,origin,dir,&state,reflections,reflected_rays);
-				for(int k = 0; k < lightsSize; k++) {
-					float lightdot = dot(dir.norm(),(lights[k].pos - origin).norm());
-					if(lightdot > (1 - 0.0001) && lightdot < (1 + 0.0001)) { // draws a sphere in the location of the light
-						current_sample = vec3{1,1,1};
-					}
+		float i = iC+r_aa.x-0.5f;
+		float j = jC+r_aa.y-0.5f;
+
+		n_samples_count = 0;
+		vec3 pixel = {0,0,0};
+		for(int z = 0; z < n_samples; z++) {
+			vec3 current_sample = {0,0,0};
+
+			vec3 dir = rotation * vec3{i,j,focal_length};
+			current_sample = compute_ray(lights,lightsSize,scene,tree,origin,dir,&state,reflections,reflected_rays);
+			for(int k = 0; k < lightsSize; k++) {
+				float lightdot = dot(dir.norm(),(lights[k].pos - origin).norm());
+				if(lightdot > (1 - 0.0001) && lightdot < (1 + 0.0001)) { // draws a sphere in the location of the light
+					current_sample = vec3{1,1,1};
 				}
-				pixel += current_sample;
-				n_samples_count++;
 			}
-
-
-			ssaa_sum_sample += (pixel / n_samples_count);
-			ssaa_samples_count++;
+			pixel += current_sample;
+			n_samples_count++;
 		}
+
+
+		ssaa_sum_sample += (pixel / n_samples_count);
 	}
 
-	data[idx] += (ssaa_sum_sample / ssaa_samples_count);
+	data[idx] += (ssaa_sum_sample / ssaa);
 }
 
 
