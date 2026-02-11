@@ -135,17 +135,16 @@ __global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,c
 	int n_samples_count = 0;
 	//float steps_l = rsqrtf(ssaa);
 	for(int aa_sample = 0; aa_sample < ssaa; aa_sample++) {
-		double2 r_aa = curand_uniform2_double(&state);
 
-		float i = iC+r_aa.x-0.5f;
-		float j = jC+r_aa.y-0.5f;
+		float2 r_aa = {2.0f*curand_uniform(&state) - 1.0f,2.0f*curand_uniform(&state) - 1.0f};
+		r_aa = rotate(r_aa,curand_uniform(&state) * M_PI * 2);
 
 		n_samples_count = 0;
 		vec3 pixel = {0,0,0};
 		for(int z = 0; z < n_samples; z++) {
 			vec3 current_sample = {0,0,0};
 
-			vec3 dir = rotation * vec3{i,j,focal_length};
+			vec3 dir = rotation * vec3{iC+r_aa.x,jC+r_aa.y,focal_length};
 			current_sample = compute_ray(lights,lightsSize,scene,tree,origin,dir,&state,reflections,reflected_rays);
 			for(int k = 0; k < lightsSize; k++) {
 				float lightdot = dot(dir.norm(),(lights[k].pos - origin).norm());

@@ -93,7 +93,7 @@ struct vec3 {
 	}
 	__host__ __device__ uint32_t argb() const {
 		vec3 t = to255();
-		return (255 << 24) | ((unsigned char)t.x << 16) | ((unsigned char)t.y << 8) | (unsigned char)t.z;
+		return (0xFF << 24) | ((unsigned char)t.x << 16) | ((unsigned char)t.y << 8) | (unsigned char)t.z;
 	}
 	static const vec3 One;
 	static const vec3 Zero;
@@ -216,4 +216,18 @@ __host__ __device__ __forceinline__ int max_idx(const vec3& v) {
 	if(v.x >= v.y && v.x >= v.z) return 0;
 	if(v.y >= v.x && v.y >= v.z) return 1;
 	return 2;
+}
+
+__device__ __forceinline__ float2 rotate(const float2& v,const float theta) {
+	float _sinf = sinf(theta);
+	float _cosf = cosf(theta);
+	return float2{v.x * _cosf + v.y * _sinf,v.x * -_sinf + v.y * _cosf};
+}
+
+__host__ __device__ __forceinline__ vec3 e_ui32(const uint32_t v) {
+	vec3 out{0,0,0};
+	out.z = static_cast<uint8_t>(v & 0xFF);
+	out.y = static_cast<uint8_t>((v >> 8) & 0xFF);
+	out.x = static_cast<uint8_t>((v >> 16) & 0xFF);
+	return out/255.0f;
 }
