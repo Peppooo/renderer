@@ -21,89 +21,59 @@ __device__ void insertionSort(float* v,int n)
 	}
 }
 
-__global__ void acc_render(int w,int h,uint32_t* return_buffer,vec3* acc_buffer,int frames_accumulated) {
+__global__ void acc_render(int w,int h,uint32_t* return_buffer,vec3_devset* acc_buffer,bool reset = false) {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
 	int idx = (x + y * w);
 	if(idx >= w * h) return;
-	if(frames_accumulated == 0) {
-		acc_buffer[idx] = vec3{0,0,0};
+	if(reset) {
+		acc_buffer[idx].reset();
 	}
-	else {
-		return_buffer[idx] = (acc_buffer[idx] / (float)frames_accumulated).argb();
-	}
+	return_buffer[idx] = acc_buffer[idx].mean().argb();
 }
 
-__global__ void postprocess(int w,int h,uint32_t* return_buff,vec3* buff,int frames_accumulated) {
+__global__ void postprocess(int w,int h,uint32_t* return_buff,vec3_devset* buff,int frames_accumulated) {
 	#define IDX(X,Y) ((X) + ((Y) * (w)))
-	#define col(X,Y) (buff[IDX(X,Y)]/((float)frames_accumulated))
+	#define col(X,Y) (buff[IDX(X,Y)].mean())
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
-	if(x >= (w - 2) || x <= 1) return;// exclude 5 pixels border
-	if(y >= (h - 2) || y <= 1) return;
+	if(x >= (w - 1) || x < 1) return;// no post process 1 border pixel
+	if(y >= (h - 1) || y < 1) return;
 	int idx = IDX(x,y);
 
-	//vec3 mean{0,0,0};
-	//vec3 center = col(x,y);
 	vec3 out{0,0,0};
 
-	float kernel[3][3] = {{1,2,1},
-						  {2,4,2},
-						  {1,2,1}};
+	/*float kernel[3][3] = {
+	{ 1,  2,  1 },
+	{ 0,  0,  0 },
+	{ -1,  -2,  -1 }
+	};
 
-	float R[25],G[25],B[25];
+	#define S 9
+	float R[S],G[S],B[S];
 
-	for(int i = 0; i < 3; i++) {
-		for(int j = 0; j < 3; j++) {
-			kernel[i][j]/=16;
-		}
-	}
+	vec3 hor = {0,0,0},ver = {0,0,0};
+
 	int _pi = 0;
-	for(int i = -2; i <= 2; i++) {
-		for(int j = -2; j <= 2; j++) {
+	for(int i = -1; i <= 1; i++) {
+		for(int j = -1; j <= 1; j++) {
 			//mean += (col((x + i),(y + j)));
-			//out += col((x + i),(y + j)) * kernel[i + 1][j + 1];
-			auto c = col((x + i),(y + j));
-			R[_pi] = c.x;
-			G[_pi] = c.y;
-			B[_pi] = c.z;
-			_pi++;
+			hor += col((x + i),(y + j)) * (kernel[i + 1][j + 1]);
+			ver += col((x + i),(y + j)) * (kernel[j + 1][i + 1]);
 		}
 	}
 
-	insertionSort(R,25);
-	insertionSort(G,25);
-	insertionSort(B,25);
+	out = v_max(hor,ver);*/
 
-	out = {R[12],G[12],B[12]};
+	float v = buff[IDX(x,y)].stdDev();
 
-	
+	if(v > 0.3) {
+		out = {1,0,0};
+	}
+	else out = {0,0,0};
 
-	//return_buff[idx] = mean.argb();
-
-	//vec3 sum = mean - center;
-
-	/*vec3 sum{0,0,0};
-
-	for(int i = -2; i <= 2; i++) {
-		for(int j = -2; j <= 2; j++) {
-			vec3 v=  mean - col((x + i),(y + j)) ;
-			sum += (v * v);
-		}
-	}*/
-	
-	/*
-	out.x = abs(out.x);
-	out.y = abs(out.y);
-	out.z = abs(out.z);
-	*/
-	//int max_component = max_idx(sum);
-	
-	//float v = sum[max_component] * 2;
 
 	return_buff[idx] = out.argb();
-
-	//return_buff[idx] = ;
 }
 
 class renderer {
@@ -122,7 +92,7 @@ private:
 	int frames_accumulated = 0;
 
 	// device
-	vec3* d_acc_framebuffer;
+	vec3_devset* d_acc_framebuffer;
 	uint32_t* d_framebuffer;
 
 	float lastYaw,lastPitch;
@@ -153,7 +123,9 @@ public:
 		sdl_window = SDL_CreateWindow(win_name,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,win_w,win_h,0);
 		sdl_renderer = SDL_CreateRenderer(sdl_window,-1,SDL_RENDERER_ACCELERATED);
 		SDL_RenderSetLogicalSize(sdl_renderer,w,h);
-		SDL_SetHint("linear",SDL_HINT_RENDER_SCALE_QUALITY);
+		if(max(w,h) > max(win_h,win_w)) {
+			SDL_SetHint("linear",SDL_HINT_RENDER_SCALE_QUALITY);
+		}
 		frame_texture = SDL_CreateTexture(
 			sdl_renderer,
 			SDL_PIXELFORMAT_ARGB8888,
@@ -161,7 +133,7 @@ public:
 			w,
 			h
 		);
-		cudaMalloc(&d_acc_framebuffer,sizeof(vec3) * w * h);
+		cudaMalloc(&d_acc_framebuffer,sizeof(vec3_devset) * w * h);
 		cudaMalloc(&d_framebuffer,sizeof(vec3) * w * h);
 		cudaMalloc(&scene,sizeof(Scene));
 		cudaMalloc(&lights,sizeof(light) * MAX_LIGHTS);
@@ -182,12 +154,15 @@ public:
 		dim3 block(8,8);
 		dim3 grid((w + block.x - 1) / block.x,(h + block.y - 1) / block.y);
 
+
 		if(lastYaw != yaw || lastPitch != pitch || !(lastOrigin == origin) || import_lights) {
 			frames_accumulated = 0;
-			acc_render << <grid,block >> > (w,h,d_framebuffer,d_acc_framebuffer,0);
+			acc_render << <grid,block >> > (w,h,d_framebuffer,d_acc_framebuffer,true); // reset dev buffer
 		}
 
-		render_pixel<<<grid,block>>>(w,h,lights,lightsSize,scene,tree,d_acc_framebuffer,origin,rot,focal_length,indirect_rays,ssaa,max_reflections,n_samples_pixel,time(0)*frame_n);
+
+
+		render_pixel<<<grid,block >>>(w,h,lights,lightsSize,scene,tree,d_acc_framebuffer,origin,rot,focal_length,indirect_rays,ssaa,max_reflections,n_samples_pixel,time(0)*frame_n);
 
 		frames_accumulated++;
 
@@ -196,7 +171,7 @@ public:
 		CUDA_CHECK(cudaDeviceSynchronize());
 
 		if(!postprocessing) {
-			acc_render << <grid,block >> > (w,h,d_framebuffer,d_acc_framebuffer,frames_accumulated);
+			acc_render << <grid,block >> > (w,h,d_framebuffer,d_acc_framebuffer);
 		} else {
 			postprocess << <grid,block >> > (w,h,d_framebuffer,d_acc_framebuffer,frames_accumulated);
 		}
@@ -240,5 +215,11 @@ public:
 		cudaMemcpy(lights,h_lights,sizeof(light)*h_lightsSize,cudaMemcpyHostToDevice);
 		lightsSize = h_lightsSize;
 		import_lights = true;
+	}
+	constexpr SDL_Window* window() const {
+		return sdl_window;
+	}
+	constexpr int accumulated_frames() const {
+		return frames_accumulated;
 	}
 };

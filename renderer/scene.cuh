@@ -13,7 +13,7 @@ public:
 	texture* tex[MAX_OBJ];
 	normal* norm[MAX_OBJ];
 	material mat[MAX_OBJ];
-	bool sphere[MAX_OBJ],use_tex[MAX_OBJ];
+	bool sphere[MAX_OBJ];
 	size_t sceneSize;
 	void addObject(const object& obj) {
 		a[sceneSize] = obj.a;

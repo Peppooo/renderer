@@ -41,9 +41,16 @@ struct alignas(32) box {
 		Min = v_min(v,Min);
 	}
 	void grow_to_include(const object& t) {
-		grow_to_include_point(t.a);
-		grow_to_include_point(t.b);
-		grow_to_include_point(t.c);
+		// a = center,b.x = radius
+		if(!t.sphere) {
+			grow_to_include_point(t.a);
+			grow_to_include_point(t.b);
+			grow_to_include_point(t.c);
+		}
+		else {
+			grow_to_include_point(t.a + vec3{t.b.x,t.b.x,t.b.x});
+			grow_to_include_point(t.a - vec3{t.b.x,t.b.x,t.b.x});
+		}
 	}
 	bool contain_point(const vec3& v) const {
 		return v.x<=Max.x&&v.y<=Max.y&&v.z<=Max.z&& Min.x <= v.x && Min.y <= v.y && Min.z <= v.z;

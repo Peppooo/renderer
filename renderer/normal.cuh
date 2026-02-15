@@ -5,14 +5,13 @@
 
 
 class normal {
-	bool _map;
-	vec3* _matrix;
+	vec3* _matrix = nullptr;
 	int width,height;
 	vec2 unit;
 	vec2 init;
 public:
-	normal(): _map(false) {}
-	normal(const char* filename,const vec2& Init,const vec2& Unit,int Width,int Height):width(Width),height(Height),init(Init),unit(Unit),_map(true)
+	normal(): _matrix(nullptr) {}
+	normal(const char* filename,const vec2& Init,const vec2& Unit,int Width,int Height):width(Width),height(Height),init(Init),unit(Unit)
 	{
 		vec3* h_matrix = new vec3[Width* Height];
 		FILE* file = fopen(filename,"rb");
@@ -37,7 +36,7 @@ public:
 		cudaFree(_matrix);
 	}
 	__device__ vec3 at(const vec3& p,const vec3& N) {
-		if(!_map) return N;
+		if(!_matrix) return N;
 		vec3 Y_vec = any_perpendicular(N);
 		vec3 X_vec = cross(Y_vec,N);
 		float __t;

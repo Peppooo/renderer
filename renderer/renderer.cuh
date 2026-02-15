@@ -22,48 +22,6 @@ __device__ __forceinline__ vec3 direct_light(const light* lights,const size_t& l
 	return out;
 }
 
-/*__device__ __forceinline__ float indirect_light(const light* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,const vec3& p,const vec3& n,const int numRays,curandStatePhilox4_32_10_t* state) {
-	float max_scalar = 0;
-	float direct_scalar = direct_light(lights,lightsSize,scene,tree,p,n);
-	for(int i = 0; i < numRays; i++) {
-		// picking ray direction by pointing to random point on each reflective object in the scene
-		int current_scene_idx = i % scene->sceneSize;
-		vec3 d = {0,0,0};
-		//if(scene->mat[current_scene_idx].type == diffuse) continue;
-		if(!scene->sphere[current_scene_idx]) {
-			if((i) / scene->sceneSize < 1) {
-				d = (scene->a[current_scene_idx] + scene->b[current_scene_idx] + scene->c[current_scene_idx]) / 3 - p;
-			}
-			else {
-				vec3 r_n = randomVec(state);
-				float sum_r_n = r_n.x + r_n.y + r_n.z;
-				d = (scene->a[current_scene_idx] * r_n.x + scene->b[current_scene_idx] * r_n.y + scene->c[current_scene_idx] * r_n.z)/sum_r_n - p;
-			}
-		}
-		else {
-			d = scene->a[current_scene_idx] - p;
-		};
-
-		vec3 temp1,temp2;
-		if(!scene->intersect(current_scene_idx,p,d,temp1,temp2)) continue; // if ray would not even hit the target point it will not even try
-
-		vec3 surf; vec3 surf_norm;
-		
-		int objIdx = tree.castRay(scene,p,d,surf,surf_norm);
-		if(objIdx != -1) {
-			float scalar = direct_light(lights,lightsSize,scene,tree,surf,surf_norm) * direct_scalar;
-			if(scalar > max_scalar) {
-
-				max_scalar = scalar;
-			}
-			if(max_scalar >= 0.99f) {
-				return max_scalar;
-			}
-		}
-	}
-	return max(max_scalar,0.0f);
-}*/
-
 __device__ __forceinline__ vec3 skyBoxColor(const vec3& D) {
 	float kY = (D.norm().y + 1) / 2;
 	return vec3{191 / 255.0f,245 / 255.0f,1}*kY + vec3{0, 110 / 255.0f, 1}*(1 - kY);
@@ -121,13 +79,18 @@ __device__ __forceinline__ vec3 compute_ray(const light* lights,const size_t& li
 
 }
 
-__global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,const Scene* scene,const bvh tree,vec3* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed) {
-	int x = threadIdx.x + blockIdx.x * blockDim.x;
-	int y = threadIdx.y + blockIdx.y * blockDim.y;
-	int idx = (x + y * w);
+__global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,const Scene* scene,const bvh tree,vec3_devset* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed) {
+	uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
+	uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
+
+	uint32_t idx = w * y + x;
 	if(idx >= w * h) return;
+
 	curandStatePhilox4_32_10_t state;
-	curand_init(seed,((unsigned long long)w / 8) * y + x,0,&state);
+	curand_init(seed,idx,0,&state);
+
+	if(data[idx].n > 100 && data[idx].stdDev() < 0.4) return;
+
 	int iC = x - w / 2;
 	int jC = -(y - h / 2);
 	int ssaa_samples_count = 0;
@@ -136,7 +99,7 @@ __global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,c
 	//float steps_l = rsqrtf(ssaa);
 	for(int aa_sample = 0; aa_sample < ssaa; aa_sample++) {
 
-		float2 r_aa = {2.0f*curand_uniform(&state) - 1.0f,2.0f*curand_uniform(&state) - 1.0f};
+		float2 r_aa = {2.0f * curand_uniform(&state) - 1.0f,2.0f * curand_uniform(&state) - 1.0f};
 		r_aa = rotate(r_aa,curand_uniform(&state) * M_PI * 2);
 
 		n_samples_count = 0;
@@ -144,7 +107,7 @@ __global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,c
 		for(int z = 0; z < n_samples; z++) {
 			vec3 current_sample = {0,0,0};
 
-			vec3 dir = rotation * vec3{iC+r_aa.x,jC+r_aa.y,focal_length};
+			vec3 dir = rotation * vec3{iC + r_aa.x,jC + r_aa.y,focal_length};
 			current_sample = compute_ray(lights,lightsSize,scene,tree,origin,dir,&state,reflections,reflected_rays);
 			for(int k = 0; k < lightsSize; k++) {
 				float lightdot = dot(dir.norm(),(lights[k].pos - origin).norm());
@@ -160,8 +123,8 @@ __global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,c
 		ssaa_sum_sample += (pixel / n_samples_count);
 	}
 
-	data[idx] += (ssaa_sum_sample / ssaa);
-}
+	data[idx].append_value(ssaa_sum_sample / ssaa);
+};
 
 
 /*__global__ void render_pixel_debug(int w,int h,const vec3* lights,size_t lightsSize,const Scene* scene,const bvh tree,uint32_t* data,vec3 origin,matrix rotation,float focal_length,int reflected_rays,int ssaa,int reflections,int n_samples,int seed)

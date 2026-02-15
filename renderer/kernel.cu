@@ -24,35 +24,37 @@ int main() {
 
 	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor\\tex.bin",vec2(0,0),vec2(0.125f,0.125f),2048,2048);
 	IMPORT_NORMAL_MAP(floor_norm_map,"..\\textures\\floor\\norm.bin",vec2(0,0),vec2(0.125f,0.125f),2048,2048);
+
 	DEFAULT_NORMAL_MAP(default_norm_map);
 	
 
-	//load_obj_in_host_array_scene("..\\objects\\sponza.obj",(vec3{-1,-2,-1}),vec3{0.1,0.1,0.1},material(diffuse),white_texture,default_norm_map,h_scene,h_sceneSize);
+	load_obj_in_host_array_scene("..\\objects\\sponza.obj",(vec3{-1,-2,-1}),vec3{0.1,0.1,0.1},material(material_type::diffuse),white_texture,default_norm_map,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\chess.obj",(vec3{0,-2,0}),vec3{0.05,0.05,0.05},material(glossy,0.6f),white_texture,default_norm_map,h_scene,h_sceneSize);
-	load_obj_in_host_array_scene("..\\objects\\dragon.obj",{-0.5,-2,-1},{10,10,10},material(diffuse),orange_texture,default_norm_map,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\dragon.obj",{-0.5,-2,-1},{10,10,10},material(material_type::diffuse),orange_texture,default_norm_map,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\xyz_dragon_low.obj",{-1.2,-2.2,0},{0.01,0.01,0.01},material(diffuse),orange_texture,default_norm_map,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\lucy.obj",{-0.5,-2,-1},{10,10,10},material(specular),purple_texture,default_norm_map,h_scene,h_sceneSize);
+	/*
+	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),red_texture,default_norm_map);
+
+	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),green_texture,default_norm_map);
+
+	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
+
+	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
+
+	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
 	
+	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(material_type::diffuse),floor_texture,floor_norm_map);
 
-	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse),red_texture,default_norm_map);
+	//sphere({0,-1,-1},0.5f,h_scene,h_sceneSize,material(material_type::specular),white_texture,default_norm_map);
 
-	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(diffuse),green_texture,default_norm_map);
-
-	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(diffuse),white_texture,default_norm_map);
-
-	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse),white_texture,default_norm_map);
-
-	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(diffuse),white_texture,default_norm_map);
-	
-	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(diffuse),floor_texture,floor_norm_map);
-
-	plane({-0.5f,1.99f,-0.5f},{0.5f,1.99f,0.5f},{-0.5f,1.99f,0.5f},{0.5f,1.99f,-0.5f},h_scene,h_sceneSize,material(diffuse,NULL,20.0f),white_texture,default_norm_map);
-
-	renderer Camera(1024,1024,2048,2048,M_PI / 1.5f,1,1,1);
+	plane({-0.5f,1.99f,-0.5f},{0.5f,1.99f,0.5f},{-0.5f,1.99f,0.5f},{0.5f,1.99f,-0.5f},h_scene,h_sceneSize,material(material_type::diffuse,20.0f),white_texture,default_norm_map);
+	*/
+	renderer Camera(1024,1024,512,512,M_PI / 1.5f,1,1,1);
 
 	Camera.init("renderer");
 	Camera.origin = vec3{0,0,0};
-	Camera.max_reflections = 5;
+	Camera.max_reflections = 7;
 	Camera.n_samples_pixel = 1;
 	Camera.ssaa = 1;
 
@@ -75,6 +77,8 @@ int main() {
 			cout << "frame time: " << sum_time / 100 << " ms" << endl; // average frame time out of 10
 			sum_time = 0;
 		}
+
+		SDL_SetWindowTitle(Camera.window(),to_string(Camera.accumulated_frames()*Camera.n_samples_pixel).c_str());
 
 		while(SDL_PollEvent(&e)) {
 			if(e.type == SDL_KEYDOWN) {

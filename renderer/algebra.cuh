@@ -5,6 +5,8 @@
 #include <curand_kernel.h>
 #include <iostream>
 
+#define INV_PI 0.3183098861837907
+
 #define clamp(x,min,max) (((x) < (min)) ? (min) : (((x) > (max)) ? (max) : (x)))
 
 #define CUDA_CHECK(call)                                     \
@@ -231,3 +233,46 @@ __host__ __device__ __forceinline__ vec3 e_ui32(const uint32_t v) {
 	out.x = static_cast<uint8_t>((v >> 16) & 0xFF);
 	return out/255.0f;
 }
+
+__host__ __device__ __forceinline__ vec3 abs(const vec3& v) {
+	return vec3{abs(v.x),abs(v.y),abs(v.z)};
+}
+
+__host__ __device__ __forceinline__ vec3 sqrtf(const vec3& v) {
+	return vec3{sqrtf(v.x),sqrtf(v.y),sqrtf(v.z)};
+}
+
+__host__ __device__ __forceinline__ float max(const vec3& v) {
+	return max(v.x,max(v.y,v.z));
+}
+
+__host__ __device__ __forceinline__ float min(const vec3& v) {
+	return min(v.x,min(v.y,v.z));
+}
+
+class vec3_devset {
+public:
+	vec3 sum = vec3::Zero;
+	unsigned int n = 0;
+	vec3 sumSq = vec3::Zero;
+	__host__ __device__ inline void reset() {
+		n = 0;
+		sum = vec3::Zero;
+		sumSq = vec3::Zero;
+	}
+	__host__ __device__ inline void append_value(const vec3& v) {
+		sum += v;
+		sumSq += v*v;
+		n++;
+	}
+	__host__ __device__ inline vec3 mean() {
+		if(n < 1) return vec3::Zero;
+		return sum / (n);
+	}
+	__host__ __device__ inline float stdDev()
+	{
+		if(n < 2) return 0;
+		auto m = mean();
+		return max(sqrtf((sumSq + m * m*n - m * sum *2) / (n - 1)));
+	}
+};

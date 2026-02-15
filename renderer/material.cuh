@@ -1,6 +1,6 @@
 #include "algebra.cuh"
 
-enum material_type {
+enum class material_type : uint8_t {
 	diffuse,
 	specular,
 	glossy
@@ -17,18 +17,17 @@ __device__ vec3 randomVecInHemisphere(const vec3& n,curandStatePhilox4_32_10_t* 
 class material {
 public:
 	material_type type;
-	float shininess;
-	float emission;
+	uint8_t emission;
 	material() {};
-	material(material_type Type,float Shininess = 0,float Emission = 0): type(Type),emission(Emission),shininess(Shininess) {};
+	material(material_type Type,uint8_t Emission = 0): type(Type),emission(Emission) {};
 	__device__ bool needs_sampling() const {
-		return type == glossy;
+		return type == material_type::glossy;
 	}
 	__device__ __forceinline__ vec3 bounce(const vec3& D,vec3 n,curandStatePhilox4_32_10_t* state) const {
-		if(type == specular) {
+		if(type == material_type::specular) {
 			return D-n*2*dot(D,n);
 		}
-		else if(type == glossy) {
+		/*else if(type == glossy) {
 			if(dot(D,n) > 0) n = -n;
 			vec3 specular = (D - n * 2 * dot(D,n)).norm();
 			
@@ -50,18 +49,18 @@ public:
 			if(dot(result,n) < 0) {
 				goto recompute;
 			}
-			return result;
-		}
-		else if(type==diffuse) {
+			return result; // stupid glossy reflection i made at the start of the project
+		}*/
+		else if(type== material_type::diffuse) {
 			float r1 = curand_uniform(state);
 			float r2 = curand_uniform(state);
 
 			float phi = 2.0f * M_PI * r1;
-			float r = sqrt(r2);
+			float r = sqrtf(r2);
 
 			float x = r * cos(phi);
 			float y = r * sin(phi);
-			float z = sqrt(1.0f - r2);
+			float z = sqrtf(1.0f - r2);
 
 			vec3 t = any_perpendicular(n);
 			vec3 b = cross(t,n);
@@ -72,15 +71,15 @@ public:
 	}
 	__device__ __forceinline__ vec3 brdf(const vec3& wo,const vec3& n,vec3& wi,const vec3& albedo,float& pdf,bool& delta,curandStatePhilox4_32_10_t* state) const {
 		wi = bounce(wo,n,state);
-		if(type == specular) {
+		if(type == material_type::specular) {
 			delta = true;
 			pdf = 1;
 			return albedo;
 		}
-		if(type == diffuse) {
+		else if(type == material_type::diffuse) {
 			delta = false;
-			pdf = dot(n,wi) / M_PI;
-			return albedo/M_PI;
+			pdf = dot(n,wi) * INV_PI;
+			return albedo * INV_PI;
 		}
 	}
 };
