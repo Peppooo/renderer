@@ -4,6 +4,7 @@
 #include "device_launch_parameters.h"
 #include <curand_kernel.h>
 #include <iostream>
+#include <cassert>
 
 #define INV_PI 0.3183098861837907
 

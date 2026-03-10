@@ -24,8 +24,9 @@ int main() {
 	COLOR_TEXTURE(black_texture,(vec3{0,0,0}));
 	COLOR_TEXTURE(red_texture,(vec3{1,0,0}));
 
-	IMPORT_TEXTURE(floor_texture,"..\\textures\\floor\\tex.bin",vec2(0,0),vec2(0.125f,0.125f),2048,2048);
-	IMPORT_NORMAL_MAP(floor_norm_map,"..\\textures\\floor\\norm.bin",vec2(0,0),vec2(0.125f,0.125f),2048,2048);
+	IMPORT_TEXTURE(floor_texture,"..\\tex-gen\\out.bin");
+	//IMPORT_TEXTURE(floor_texture,"..\\textures\\floor\\tex.bin",vec2(0,0),vec2(0.125f,0.125f),2048,2048);
+	//IMPORT_NORMAL_MAP(floor_norm_map,"..\\textures\\floor\\norm.bin",vec2(0,0),vec2(0.125f,0.125f),2048,2048);
 
 	DEFAULT_NORMAL_MAP(default_norm_map);
 	
@@ -48,7 +49,7 @@ int main() {
 
 	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
 	
-	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(material_type::diffuse),floor_texture,floor_norm_map);
+	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(material_type::diffuse),floor_texture,default_norm_map);
 	
 	//plane({-0.5f,1.99f,-0.5f},{0.5f,1.99f,0.5f},{-0.5f,1.99f,0.5f},{0.5f,1.99f,-0.5f},h_scene,h_sceneSize,material(material_type::diffuse,true),white_light_texture,default_norm_map);
 
