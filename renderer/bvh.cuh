@@ -1,6 +1,7 @@
 ﻿#include "scene.cuh"
 #include <vector>
 #include <iostream>
+#include <queue>
 
 __device__ void d_swap(float& f1,float& f2) {
 	float copy = f1;
@@ -149,8 +150,7 @@ public:
 		int rightChild = nodesCount++;
 
 		nodes[idx].leftChild = leftChild;
-		//nodes[idx].rightChild = rightChild;
-
+		
 		int i = start;
 		int j = start + count - 1;
 
@@ -175,22 +175,21 @@ public:
 		return 0;
 	}
 	void structurate(object* scene,const int sceneSize,const int max_depth) { // build from root
-		vector<int> stack;
-		stack.reserve(1024);
-		stack.push_back(0);
+		queue<int> stack;
+		stack.push(0);
 
 		size_t targetNcount = (1ull<<(max_depth+1))-1; // 2^(max_depth+1)-1
-
+		
 		while(stack.size() > 0) {
 			auto current_build = stack.front(); 
-			stack.erase(stack.begin());
+			stack.pop();
 
 			if(nodesCount >= max_nodes - 4) break;
 
 			
 			if(!buildChilds(scene,sceneSize,current_build)) {
-				stack.push_back(nodes[current_build].leftChild);
-				stack.push_back(nodes[current_build].leftChild + 1);
+				stack.push(nodes[current_build].leftChild);
+				stack.push(nodes[current_build].leftChild + 1);
 			}
 		}
 	}

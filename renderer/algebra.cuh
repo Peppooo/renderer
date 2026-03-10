@@ -53,10 +53,12 @@ struct vec3 {
 		return {x * v.x,y * v.y,z * v.z};
 	}
 	__host__ __device__ __forceinline__ vec3 operator/(const float scalar) const {
-		return {x / scalar,y / scalar,z / scalar};
+		const float inv = 1 / scalar;
+		return {x * inv,y *inv ,z * inv};
 	}
 	__host__ __device__ __forceinline__ vec3 operator/(const vec3& v) const {
-		return {x / v.x,y / v.y,z / v.z};
+		const vec3 inv = {1/v.x,1/v.y,1/v.z};
+		return {x *inv.x,y * inv.y,z * inv.z};
 	}
 	__host__ __device__ __forceinline__ vec3 operator+(const vec3& a) const {
 		return {x + a.x,y + a.y,z + a.z};
@@ -250,6 +252,14 @@ __host__ __device__ __forceinline__ float min(const vec3& v) {
 	return min(v.x,min(v.y,v.z));
 }
 
+__host__ __device__
+inline float luminance(const vec3& c)
+{
+	return 0.2126f * c.x +
+		0.7152f * c.y +
+		0.0722f * c.z;
+}
+
 class vec3_devset {
 public:
 	vec3 sum = vec3::Zero;
@@ -265,14 +275,13 @@ public:
 		sumSq += v*v;
 		n++;
 	}
-	__host__ __device__ inline vec3 mean() {
+	__host__ __device__ inline vec3 mean() const {
 		if(n < 1) return vec3::Zero;
 		return sum / (n);
 	}
-	__host__ __device__ inline float stdDev()
-	{
+	__host__ __device__ inline float stdDev() const {
 		if(n < 2) return 0;
 		auto m = mean();
-		return max(sqrtf((sumSq + m * m*n - m * sum *2) / (n - 1)));
+		return max(sqrtf(v_max((sumSq - m * m * n) / n,{0,0,0})));
 	}
 };

@@ -23,6 +23,7 @@ __device__ __forceinline__ vec3 direct_light(const light* lights,const size_t& l
 }
 
 __device__ __forceinline__ vec3 skyBoxColor(const vec3& D) {
+	return {0,0,0};
 	float kY = (D.norm().y + 1) / 2;
 	return vec3{191 / 255.0f,245 / 255.0f,1}*kY + vec3{0, 110 / 255.0f, 1}*(1 - kY);
 }
@@ -40,12 +41,8 @@ __device__ __forceinline__ vec3 compute_ray(const light* lights,const size_t& li
 			break;
 		}
 
-		// Add emission
-		if(scene->mat[hit].emission != 0) {
-			L += throughput * scene->mat[hit].emission;
-		}
-
 		// Direct lighting
+		 
 		L += throughput * direct_light(lights,lightsSize,scene,tree,p_hit,n_hit);
 
 
@@ -55,6 +52,11 @@ __device__ __forceinline__ vec3 compute_ray(const light* lights,const size_t& li
 		bool delta_brdf;
 		vec3 albedo = scene->color(hit,p_hit);
 		vec3 f = scene->mat[hit].brdf(D,n_hit,wi,albedo,pdf,delta_brdf,state);
+
+		// Add emission
+		if(scene->mat[hit].isEmissive) {
+			L += throughput * albedo;
+		}
 
 		if(pdf <= 0 || f == vec3{0,0,0}) break;
 
@@ -83,13 +85,17 @@ __global__ void render_pixel(int w,int h,const light* lights,size_t lightsSize,c
 	uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
 	uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
 
+	uint32_t t_idx = (gridDim.x * blockDim.x)* y + x;
+
+
+
 	uint32_t idx = w * y + x;
 	if(idx >= w * h) return;
 
 	curandStatePhilox4_32_10_t state;
 	curand_init(seed,idx,0,&state);
 
-	if(data[idx].n > 100 && data[idx].stdDev() < 0.4) return;
+	if(data[idx].stdDev() < 3 && data[idx].n > 1000) return;
 
 	int iC = x - w / 2;
 	int jC = -(y - h / 2);

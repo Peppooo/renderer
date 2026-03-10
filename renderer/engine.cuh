@@ -7,17 +7,21 @@
 #include "physics.cuh"
 #include "algebra.cuh"
 
-__device__ void insertionSort(float* v,int n)
+__device__ void insertionSort(vec3* v,int n)
 {
-	for(int i = 1; i < n; i++) {
-		float key = v[i];
-		int j = i - 1;
+	for(int c = 0; c < 3; c++) {
 
-		while(j >= 0 && v[j] > key) {
-			v[j + 1] = v[j];
-			j--;
+		for(int i = 1; i < n; i++) {
+			float key = v[i][c];
+			int j = i - 1;
+
+			while(j >= 0 && v[j][c] > key) {
+				v[j + 1][c] = v[j][c];
+				j--;
+			}
+			v[j + 1][c] = key;
 		}
-		v[j + 1] = key;
+
 	}
 }
 
@@ -32,6 +36,7 @@ __global__ void acc_render(int w,int h,uint32_t* return_buffer,vec3_devset* acc_
 	return_buffer[idx] = acc_buffer[idx].mean().argb();
 }
 
+
 __global__ void postprocess(int w,int h,uint32_t* return_buff,vec3_devset* buff,int frames_accumulated) {
 	#define IDX(X,Y) ((X) + ((Y) * (w)))
 	#define col(X,Y) (buff[IDX(X,Y)].mean())
@@ -43,37 +48,25 @@ __global__ void postprocess(int w,int h,uint32_t* return_buff,vec3_devset* buff,
 
 	vec3 out{0,0,0};
 
-	/*float kernel[3][3] = {
-	{ 1,  2,  1 },
-	{ 0,  0,  0 },
-	{ -1,  -2,  -1 }
-	};
+	constexpr int lKern = 3;
+	constexpr int s = (lKern - 1) / 2;
 
-	#define S 9
-	float R[S],G[S],B[S];
+	vec3 mat[lKern*lKern];
+
 
 	vec3 hor = {0,0,0},ver = {0,0,0};
-
 	int _pi = 0;
-	for(int i = -1; i <= 1; i++) {
-		for(int j = -1; j <= 1; j++) {
+	for(int i = -s; i <= s; i++) {
+		for(int j = -s; j <= s; j++) {
 			//mean += (col((x + i),(y + j)));
-			hor += col((x + i),(y + j)) * (kernel[i + 1][j + 1]);
-			ver += col((x + i),(y + j)) * (kernel[j + 1][i + 1]);
+			mat[_pi] = col((x + i),(y + j));
+			_pi++;
 		}
 	}
 
-	out = v_max(hor,ver);*/
+	insertionSort(mat,sizeof(mat) / sizeof(vec3));
 
-	float v = buff[IDX(x,y)].stdDev();
-
-	if(v > 0.3) {
-		out = {1,0,0};
-	}
-	else out = {0,0,0};
-
-
-	return_buff[idx] = out.argb();
+	return_buff[idx] = mat[((_pi+1) - 1) / 2].argb();
 }
 
 class renderer {

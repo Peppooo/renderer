@@ -12,9 +12,11 @@ bool _use_pp = false;// use post processing
 int main() {
 	// scene infos
 	object* h_scene = new object[MAX_OBJ]; size_t h_sceneSize = 0; // scene size calculated step by step 
-	light h_lights[1] = {light{{0,1,0},{2,2,2}}}; int h_lightsSize = 0;
+	light h_lights[1] = {light{{0,1,0},{2,2,2}}}; int h_lightsSize = 1;
 
 	COLOR_TEXTURE(white_texture,(vec3{1,1,1}));
+	COLOR_TEXTURE(white_light_texture,(vec3{20,20,20}));
+	COLOR_TEXTURE(yellow_light_texture,(vec3{22.0f/ 10.0f,19.0f/10.0f,0.1f}));
 	COLOR_TEXTURE(green_texture,(vec3{0,1,0}));
 	COLOR_TEXTURE(blue_texture,(vec3{0,0,1}));
 	COLOR_TEXTURE(orange_texture,(vec3{235/255.0f, 180/255.0f, 52/255.0f}));
@@ -28,13 +30,15 @@ int main() {
 	DEFAULT_NORMAL_MAP(default_norm_map);
 	
 
-	load_obj_in_host_array_scene("..\\objects\\sponza.obj",(vec3{-1,-2,-1}),vec3{0.1,0.1,0.1},material(material_type::diffuse),white_texture,default_norm_map,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\sponza.obj",(vec3{-1,-2,-1}),vec3{0.1,0.1,0.1},material(material_type::diffuse),white_texture,default_norm_map,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\chess.obj",(vec3{0,-2,0}),vec3{0.05,0.05,0.05},material(glossy,0.6f),white_texture,default_norm_map,h_scene,h_sceneSize);
+	load_obj_in_host_array_scene("..\\objects\\car.obj",{-0.5,-2,-1},{1,1,1},material(material_type::specular),white_texture,default_norm_map,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\dragon.obj",{-0.5,-2,-1},{10,10,10},material(material_type::diffuse),orange_texture,default_norm_map,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\dragon.obj",{-1,-2,-0.6},{4,4,4},material(material_type::diffuse),purple_texture,default_norm_map,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\xyz_dragon_low.obj",{-1.2,-2.2,0},{0.01,0.01,0.01},material(diffuse),orange_texture,default_norm_map,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\lucy.obj",{-0.5,-2,-1},{10,10,10},material(specular),purple_texture,default_norm_map,h_scene,h_sceneSize);
-	/*
-	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),red_texture,default_norm_map);
+	
+	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
 
 	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),green_texture,default_norm_map);
 
@@ -45,21 +49,27 @@ int main() {
 	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
 	
 	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(material_type::diffuse),floor_texture,floor_norm_map);
+	
+	//plane({-0.5f,1.99f,-0.5f},{0.5f,1.99f,0.5f},{-0.5f,1.99f,0.5f},{0.5f,1.99f,-0.5f},h_scene,h_sceneSize,material(material_type::diffuse,true),white_light_texture,default_norm_map);
 
 	//sphere({0,-1,-1},0.5f,h_scene,h_sceneSize,material(material_type::specular),white_texture,default_norm_map);
 
-	plane({-0.5f,1.99f,-0.5f},{0.5f,1.99f,0.5f},{-0.5f,1.99f,0.5f},{0.5f,1.99f,-0.5f},h_scene,h_sceneSize,material(material_type::diffuse,20.0f),white_texture,default_norm_map);
-	*/
-	renderer Camera(1024,1024,512,512,M_PI / 1.5f,1,1,1);
+	//plane({-10,0,-10},{10,0,-10},{10,0,10},{-10,0,10},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
+
+	//sphere({0,0.51f,0},0.5f,h_scene,h_sceneSize,material(material_type::diffuse,1),yellow_light_texture,default_norm_map);
+	//sphere({-1.05f,0.51f,0},0.5f,h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
+
+	
+	renderer Camera(1024,1024,1024,1024,M_PI / 1.5f,1,1,1);
 
 	Camera.init("renderer");
-	Camera.origin = vec3{0,0,0};
-	Camera.max_reflections = 7;
+	Camera.origin = vec3{-1,1,-1};
+	Camera.max_reflections = 6;
 	Camera.n_samples_pixel = 1;
 	Camera.ssaa = 1;
 
 	int numKeys;
-	const Uint8* keystates=SDL_GetKeyboardState(&numKeys);
+	const Uint8* keystates = SDL_GetKeyboardState(&numKeys);
 
 	SDL_Event e;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
