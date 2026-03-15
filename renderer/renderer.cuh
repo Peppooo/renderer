@@ -5,25 +5,26 @@
 #include "bvh.cuh"
 #include "light.cuh"
 
-__device__ __forceinline__ vec3 direct_light(const light* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,const vec3& p,const vec3& n) { // gets illumination from the brightest of all the lights
+__device__ __forceinline__ vec3 direct_light(const light* lights,const size_t& lightsSize,const Scene* scene,const bvh& tree,const vec3& albedo,const vec3& brdf,const vec3& p,const vec3& n) { // gets illumination from the brightest of all the lights
 	float max_light_scalar = 0;
 	vec3 normalized_n = n.len2()==1?n:n.norm();
 
 	vec3 out = {0,0,0};
 	for(int i = 0; i < lightsSize; i++) {
-		vec3 dir_to_light = (lights[i].pos - p);
-		if(tree.castRayShadow(scene,p,dir_to_light,lights[i].pos,1.0f/dir_to_light)) {
+		vec3 dir_to_light = (lights[i].pos - p).norm();
+		vec3 shadowRayHit,_;
+		//if(tree.castRay(scene,p,dir_to_light,1.0f/dir_to_light,shadowRayHit,_) == -1 || (shadowRayHit-p).len2() > (lights[i].pos-p).len2()) {
+		if(tree.castRayShadow(scene,p,dir_to_light,(1.0f/dir_to_light).norm(),lights[i].pos)) {
 			float l = (lights[i].pos - p).len2();
-			float scalar = max((dot(dir_to_light.norm(),normalized_n)),0.0f); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
+			float NdotL = max((dot(dir_to_light,normalized_n)),0.0f); // how much light is in a point is calculated by the dot product of the surface normal and the direction of the surface point to the light point
 			
-			out += lights[i].color * scalar * (1 / max(l,0.01f));
+			out += lights[i].color * brdf * NdotL  / max(l,0.01f);
 		}
 	}
 	return out;
 }
 
 __device__ __forceinline__ vec3 skyBoxColor(const vec3& D) {
-	return {0,0,0};
 	float kY = (D.norm().y + 1) / 2;
 	return vec3{191 / 255.0f,245 / 255.0f,1}*kY + vec3{0, 110 / 255.0f, 1}*(1 - kY);
 }
@@ -41,9 +42,6 @@ __device__ __forceinline__ vec3 compute_ray(const light* lights,const size_t& li
 			break;
 		}
 
-		// Direct lighting
-		 
-		L += throughput * direct_light(lights,lightsSize,scene,tree,p_hit,n_hit);
 
 
 		// Sample BSDF
@@ -52,6 +50,12 @@ __device__ __forceinline__ vec3 compute_ray(const light* lights,const size_t& li
 		bool delta_brdf;
 		vec3 albedo = scene->color(hit,p_hit);
 		vec3 f = scene->mat[hit].brdf(D,n_hit,wi,albedo,pdf,delta_brdf,state);
+
+		// Direct lighting
+
+		if(!delta_brdf) {
+			L += throughput * direct_light(lights,lightsSize,scene,tree,albedo,f,p_hit,n_hit);
+		}
 
 		// Add emission
 		if(scene->mat[hit].isEmissive) {

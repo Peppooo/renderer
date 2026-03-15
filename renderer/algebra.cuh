@@ -121,11 +121,15 @@ public:
 	float x,y;
 	__host__ __device__ vec2(): x(0),y(0) {};
 	__host__ __device__ vec2(const float X,const float Y): x(X),y(Y) {}
-	__host__ __device__ vec2 operator*(const float a) {
+
+	__host__ __device__ vec2 operator*(const float a) const {
 		return vec2(x * a,y * a);
 	}
-	__host__ __device__ vec2 operator+(const vec2& v) {
+	__host__ __device__ vec2 operator+(const vec2& v) const {
 		return vec2(x+v.x,y+v.y);
+	}
+	__host__ __device__ vec2 operator-(const vec2& v) const {
+		return vec2(x - v.x,y - v.y);
 	}
 };
 

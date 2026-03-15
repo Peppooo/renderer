@@ -4,7 +4,6 @@
 #include "device_launch_parameters.h"
 #include <SDL2/SDL.h>
 #include <chrono>
-#include "physics.cuh"
 #include "algebra.cuh"
 
 __device__ void insertionSort(vec3* v,int n)
@@ -78,6 +77,9 @@ private:
 	SDL_Renderer* sdl_renderer;
 	SDL_Texture* frame_texture;
 	bvh tree;
+
+	vector<int> h_ems_objs;
+	
 	chrono::time_point<chrono::steady_clock> lastTime;
 	vec3* acc_framebuffer;
 	uint32_t* framebuffer;
@@ -184,14 +186,15 @@ public:
 		lastPitch = pitch,lastYaw = yaw;
 		import_lights = false;
 	}
-	void import_scene_from_host(const Scene* h_scene) const {
-		cudaMemcpy(scene,h_scene,sizeof(Scene),cudaMemcpyHostToDevice);
-	}
 	void import_scene_from_host_array(object* h_scene,const size_t h_sceneSize,const int bvh_max_depth) {
 		tree.build(bvh_max_depth,h_scene,h_sceneSize);
 		Scene* h_scene_soa = new Scene;
+
 		h_scene_soa->sceneSize = 0;
 		for(int i = 0; i < h_sceneSize; i++) {
+			if(h_scene[i].mat.isEmissive) {
+				h_ems_objs.push_back(i);
+			}
 			h_scene_soa->addObject(h_scene[i]);
 		}
 		int counter = 0;
@@ -200,8 +203,15 @@ public:
 				counter += tree.nodes[i].bounds.trigCount;
 			}
 		}*/
-		cout << "leaf nodes primitives count: " << counter << "/" << h_scene_soa->sceneSize << endl;
+		//cout << "leaf nodes primitives count: " << counter << "/" << h_scene_soa->sceneSize << endl;
 		CUDA_CHECK(cudaMemcpy(scene,h_scene_soa,sizeof(Scene),cudaMemcpyHostToDevice));
+
+		cudaMalloc(&(h_scene_soa->ems_objs),sizeof(int) * h_ems_objs.size());
+
+		CUDA_CHECK(cudaMemcpy(h_scene_soa->ems_objs,h_ems_objs.data(),sizeof(int) * h_ems_objs.size(),cudaMemcpyHostToDevice));
+
+		// clean host memory
+		h_ems_objs.clear();
 		delete h_scene_soa;
 	}
 	void import_lights_from_host(const light* h_lights,const int h_lightsSize) {

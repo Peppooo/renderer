@@ -12,9 +12,9 @@ bool _use_pp = false;// use post processing
 int main() {
 	// scene infos
 	object* h_scene = new object[MAX_OBJ]; size_t h_sceneSize = 0; // scene size calculated step by step 
-	light h_lights[1] = {light{{0,1,0},{2,2,2}}}; int h_lightsSize = 1;
+	light h_lights[1] = {light{{0,1,0},{10 ,10,10}}}; int h_lightsSize = 1;
 
-	COLOR_TEXTURE(white_texture,(vec3{1,1,1}));
+	COLOR_TEXTURE(white_texture,(vec3{0.7,0.7,0.7}));
 	COLOR_TEXTURE(white_light_texture,(vec3{20,20,20}));
 	COLOR_TEXTURE(yellow_light_texture,(vec3{22.0f/ 10.0f,19.0f/10.0f,0.1f}));
 	COLOR_TEXTURE(green_texture,(vec3{0,1,0}));
@@ -24,36 +24,34 @@ int main() {
 	COLOR_TEXTURE(black_texture,(vec3{0,0,0}));
 	COLOR_TEXTURE(red_texture,(vec3{1,0,0}));
 
-	IMPORT_TEXTURE(floor_texture,"..\\tex-gen\\out.bin");
+	IMPORT_TEXTURE(floor_texture,"..\\tex-gen\\texture.bin");
+
 	//IMPORT_TEXTURE(floor_texture,"..\\textures\\floor\\tex.bin",vec2(0,0),vec2(0.125f,0.125f),2048,2048);
 	//IMPORT_NORMAL_MAP(floor_norm_map,"..\\textures\\floor\\norm.bin",vec2(0,0),vec2(0.125f,0.125f),2048,2048);
 
-	DEFAULT_NORMAL_MAP(default_norm_map);
-	
-
 	//load_obj_in_host_array_scene("..\\objects\\sponza.obj",(vec3{-1,-2,-1}),vec3{0.1,0.1,0.1},material(material_type::diffuse),white_texture,default_norm_map,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\chess.obj",(vec3{0,-2,0}),vec3{0.05,0.05,0.05},material(glossy,0.6f),white_texture,default_norm_map,h_scene,h_sceneSize);
-	load_obj_in_host_array_scene("..\\objects\\car.obj",{-0.5,-2,-1},{1,1,1},material(material_type::specular),white_texture,default_norm_map,h_scene,h_sceneSize);
+	//load_obj_in_host_array_scene("..\\objects\\car.obj",{-0.5,-2,-1},{1,1,1},material(material_type::specular),white_texture,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\dragon.obj",{-0.5,-2,-1},{10,10,10},material(material_type::diffuse),orange_texture,default_norm_map,h_scene,h_sceneSize);
-	//load_obj_in_host_array_scene("..\\objects\\dragon.obj",{-1,-2,-0.6},{4,4,4},material(material_type::diffuse),purple_texture,default_norm_map,h_scene,h_sceneSize);
+	load_obj_in_host_array_scene("..\\objects\\dragon.obj",{-1,-2,-0.6},{4,4,4},material(material_type::specular),orange_texture,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\xyz_dragon_low.obj",{-1.2,-2.2,0},{0.01,0.01,0.01},material(diffuse),orange_texture,default_norm_map,h_scene,h_sceneSize);
 	//load_obj_in_host_array_scene("..\\objects\\lucy.obj",{-0.5,-2,-1},{10,10,10},material(specular),purple_texture,default_norm_map,h_scene,h_sceneSize);
 	
-	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
+	plane({-2,-2,-2},{-2,2,-2},{-2,-2,2},{-2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),red_texture);
 
-	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),green_texture,default_norm_map);
+	plane({2,-2,-2},{2,2,-2},{2,-2,2},{2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),green_texture);
 
-	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
+	plane({-2,2,-2},{2,2,-2},{2,2,2},{-2,2,2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture);
 
-	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
+	plane({2,2,2},{-2,2,2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture);
 
-	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
+	plane({2,2,-2},{-2,2,-2},{2,-2,-2},{-2,-2,-2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture);
 	
-	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(material_type::diffuse),floor_texture,default_norm_map);
+	plane({-2,-2,-2},{2,-2,-2},{2,-2,2},{-2,-2,2},h_scene,h_sceneSize,material(material_type::diffuse),white_texture);
 	
-	//plane({-0.5f,1.99f,-0.5f},{0.5f,1.99f,0.5f},{-0.5f,1.99f,0.5f},{0.5f,1.99f,-0.5f},h_scene,h_sceneSize,material(material_type::diffuse,true),white_light_texture,default_norm_map);
+	//plane({-0.5f,1.99f,-0.5f},{0.5f,1.99f,0.5f},{-0.5f,1.99f,0.5f},{0.5f,1.99f,-0.5f},h_scene,h_sceneSize,material(material_type::diffuse,true),white_light_texture);
 
-	//sphere({0,-1,-1},0.5f,h_scene,h_sceneSize,material(material_type::specular),white_texture,default_norm_map);
+	//sphere({0,-1,-1},0.5f,h_scene,h_sceneSize,material(material_type::specular),white_texture);
 
 	//plane({-10,0,-10},{10,0,-10},{10,0,10},{-10,0,10},h_scene,h_sceneSize,material(material_type::diffuse),white_texture,default_norm_map);
 
@@ -65,7 +63,7 @@ int main() {
 
 	Camera.init("renderer");
 	Camera.origin = vec3{-1,1,-1};
-	Camera.max_reflections = 6;
+	Camera.max_reflections = 4;
 	Camera.n_samples_pixel = 1;
 	Camera.ssaa = 1;
 

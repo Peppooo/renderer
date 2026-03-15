@@ -278,6 +278,7 @@ public:
 		}
 		return hitIdx;
 	}
+
 	__device__ bool castRayShadow(const Scene* scene,const vec3& o,const vec3& d,const vec3& invD,const vec3& L) const {
 		int stack[64]; int stackSize = 0;
 		stack[stackSize++] = 0;
@@ -286,7 +287,8 @@ public:
 		// start from root
 		float max_dist = (o - L).len();
 		while(stackSize > 0) {
-			int current_idx = stack[stackSize - 1]; stackSize--;
+			stackSize--;
+			int current_idx = stack[stackSize];
 			float bound_dist = 0;
 			if(dev_nodes[current_idx].intersect(o,invD,bound_dist) && bound_dist < max_dist) {
 				// if leaf node, add indecies

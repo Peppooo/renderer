@@ -1,7 +1,7 @@
 #pragma once
 #include "objects.cuh"
 
-#define MAX_OBJ 5000000
+#define MAX_OBJ 10000000
 
 struct Scene {
 private:
@@ -10,24 +10,29 @@ public:
 	vec3 a[MAX_OBJ];
 	vec3 b[MAX_OBJ];
 	vec3 c[MAX_OBJ];
+	vec2 t_a[MAX_OBJ];
+	vec2 t_b[MAX_OBJ];
+	vec2 t_c[MAX_OBJ];
 	texture* tex[MAX_OBJ];
-	normal* norm[MAX_OBJ];
 	material mat[MAX_OBJ];
 	bool sphere[MAX_OBJ];
 	size_t sceneSize;
+	int* ems_objs = nullptr;
 	void addObject(const object& obj) {
 		a[sceneSize] = obj.a;
 		b[sceneSize] = obj.b;
 		c[sceneSize] = obj.c;
+		t_a[sceneSize] = obj.t_a;
+		t_b[sceneSize] = obj.t_b;
+		t_c[sceneSize] = obj.t_c;
 		tex[sceneSize] = obj.tex;
 		t_normal[sceneSize] = obj.t_normal;
 		mat[sceneSize] = obj.mat;
-		norm[sceneSize] = obj.norm;
 		sphere[sceneSize] = obj.sphere;
 		sceneSize++;
 	}
 	__device__ __forceinline__ vec3 color(const int idx,const vec3& p) const {
-		return tex[idx]->alb(p,t_normal[idx]);
+		return tex[idx]->albedo(a[idx],b[idx],c[idx],t_a[idx],t_b[idx],t_c[idx],p,t_normal[idx]);
 	};
 	__device__ __forceinline__ bool intersect(const int idx,const vec3& O,const vec3& D,vec3& p,vec3& N) const {
 		if(!sphere[idx])
@@ -56,7 +61,7 @@ public:
 
 			// OUTPUTS
 			p = O + D * t + N * 1e-4f;
-			N = norm[idx]->at(p,N);
+			N = tex[idx]->norm(a[idx],b[idx],c[idx],t_a[idx],t_b[idx],t_c[idx],p,N);
 
 			return true;
 		}
@@ -81,7 +86,7 @@ public:
 
 		p = hit + N * 1e-4f;
 
-		N = norm[idx]->at(p,N);
+		//N = tex[idx]->norm(p,N);
 
 		return true;
 	}

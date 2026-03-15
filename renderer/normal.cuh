@@ -3,6 +3,7 @@
 #include "algebra.cuh"
 #include <stdio.h>
 
+// USELESS NOW
 
 class normal {
 	vec3* _matrix = nullptr;
@@ -35,7 +36,7 @@ public:
 	~normal() {
 		cudaFree(_matrix);
 	}
-	__device__ vec3 at(const vec3& p,const vec3& N) {
+	__device__ vec3 _at(const vec3& p,const vec3& N) {
 		if(!_matrix) return N;
 		vec3 Y_vec = any_perpendicular(N);
 		vec3 X_vec = cross(Y_vec,N);
